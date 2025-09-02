@@ -42,7 +42,7 @@ export default function DrivePage() {
 
   const handleConnect = async () => {
     const url = await getGoogleAuthUrl();
-    window.location.href = url;
+    window.open(url, "_blank", "noopener,noreferrer");
   };
   
   const renderContent = () => {
