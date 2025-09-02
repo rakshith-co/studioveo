@@ -6,7 +6,7 @@ import { type VideoFile } from "@/app/page";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Play, Pencil, AlertCircle, Loader2, UploadCloud } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 interface VideoCardProps {
   video: VideoFile;
@@ -32,6 +32,7 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
           <>
             <UploadCloud className="h-6 w-6 animate-bounce mb-2" />
             <p className="text-xs font-semibold">Saving to Drive...</p>
+            <Progress value={video.progress} className="w-3/4 h-2 mt-2 bg-white/20 border border-white/30" />
           </>
         );
         break;
@@ -87,3 +88,5 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
     </div>
   );
 }
+
+    

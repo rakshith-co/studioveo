@@ -14,10 +14,9 @@ import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
 import { RefineTagsModal } from "@/components/refine-tags-modal";
 import { cn } from "@/lib/utils";
-import { isGoogleDriveConnected, uploadFileToDrive, getGoogleAuthUrl } from "@/lib/google-drive";
+import { isGoogleDriveConnected, uploadFileToDrive, getGoogleAuthUrl, renameGoogleFile } from "@/lib/google-drive";
 import { Sidebar } from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { renameGoogleFile } from "@/lib/google-drive";
 
 export interface VideoFile {
   id: string;
@@ -27,6 +26,7 @@ export interface VideoFile {
   thumbnail: string | null;
   tags: string | null;
   status: "queued" | "processing" | "uploading" | "success" | "error";
+  progress: number;
   error?: string;
 }
 
@@ -48,7 +48,7 @@ export default function HomePage() {
     const files = event.target.files;
     if (!files) return;
 
-    if (!driveConnected) {
+    if (driveConnected === false) {
         toast({
             variant: "destructive",
             title: "Google Drive Not Connected",
@@ -66,6 +66,7 @@ export default function HomePage() {
         thumbnail: null,
         tags: null,
         status: "queued",
+        progress: 0,
       }));
 
     const nonVideoFiles = Array.from(files).filter(file => !file.type.startsWith("video/"));
@@ -112,7 +113,7 @@ export default function HomePage() {
         resolve(dataUrl);
       };
 
-      video.onerror = () => {
+      video.onerror = (e) => {
         revokeUrl();
         reject(new Error("Failed to load or process video file. It might be corrupt or an unsupported format."));
       };
@@ -121,48 +122,70 @@ export default function HomePage() {
     });
   }, []);
 
+  const handleSetVideoProgress = (id: string, progress: number) => {
+    setVideos(prev =>
+      prev.map(v => (v.id === id ? { ...v, progress } : v))
+    );
+  };
+  
   useEffect(() => {
     const processQueue = async () => {
-      const videoToProcess = videos.find(v => v.status === "queued");
-      if (!videoToProcess) {
+      const videosToProcess = videos.filter(v => v.status === "queued");
+      if (videosToProcess.length === 0) {
         setIsProcessing(false);
         return;
       }
 
       setIsProcessing(true);
-      setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "processing" } : v));
+      
+      setVideos(prev =>
+        prev.map(v =>
+          videosToProcess.some(p => p.id === v.id)
+            ? { ...v, status: "processing" }
+            : v
+        )
+      );
 
-      try {
-        const frameDataUri = await extractFrame(videoToProcess.file);
-        setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, thumbnail: frameDataUri } : v));
+      const processingPromises = videosToProcess.map(async (video) => {
+        try {
+          const frameDataUri = await extractFrame(video.file);
+          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, thumbnail: frameDataUri } : v));
 
-        const tagResult = await generateVideoTags({
-          frameDataUri,
-          filename: videoToProcess.file.name,
-        });
-        const newTags = tagResult.tags;
-        setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, tags: newTags } : v));
-        
-        setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "uploading" } : v));
-        
-        const driveFile = await uploadFileToDrive(videoToProcess.file, newTags);
-        
-        setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "success", driveId: driveFile.id } : v));
-        toast({
-            title: "Upload Complete!",
-            description: `${newTags} is now in your Google Drive.`,
-        });
+          const tagResult = await generateVideoTags({
+            frameDataUri,
+            filename: video.file.name,
+          });
+          const newTags = tagResult.tags;
+          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, tags: newTags } : v));
+          
+          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, status: "uploading" } : v));
+          
+          const driveFile = await uploadFileToDrive(
+            video.file,
+            newTags,
+            (progress) => handleSetVideoProgress(video.id, progress)
+          );
+          
+          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, status: "success", driveId: driveFile.id } : v));
+          
+          toast({
+              title: "Upload Complete!",
+              description: `${newTags} is now in your Google Drive.`,
+          });
 
-      } catch (error) {
-        console.error(error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during processing.";
-        setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "error", error: errorMessage } : v));
-        toast({
-          variant: "destructive",
-          title: "Processing Failed",
-          description: `Could not process ${videoToProcess.file.name}. ${errorMessage}`,
-        });
-      }
+        } catch (error) {
+          console.error(error);
+          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during processing.";
+          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, status: "error", error: errorMessage } : v));
+          toast({
+            variant: "destructive",
+            title: "Processing Failed",
+            description: `Could not process ${video.file.name}. ${errorMessage}`,
+          });
+        }
+      });
+
+      await Promise.all(processingPromises);
     };
 
     processQueue();
@@ -251,7 +274,7 @@ export default function HomePage() {
                         onChange={handleFileChange}
                         disabled={driveConnected === false || isProcessing}
                     />
-                     <Link href="/drive" className={cn(buttonVariants({ size: "icon", variant: "ghost" }), driveConnected === false && "animate-pulse")}>
+                     <Link href="/drive" className={cn(buttonVariants({ size: "icon", variant: "ghost" }))}>
                         {driveConnected ? <CheckCircle className="h-5 w-5 text-green-500" /> : <Disc3 className="h-5 w-5" />}
                     </Link>
                 </div>
@@ -344,3 +367,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    

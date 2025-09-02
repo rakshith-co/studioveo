@@ -67,8 +67,12 @@ export async function getAuthenticatedClient() {
 }
 
 export async function isGoogleDriveConnected() {
-    const client = await getAuthenticatedClient();
-    return !!client;
+    try {
+        const client = await getAuthenticatedClient();
+        return !!client;
+    } catch (e) {
+        return false;
+    }
 }
 
 export async function createFolderIfNotExist(drive: any, folderName: string): Promise<string> {
@@ -93,7 +97,11 @@ export async function createFolderIfNotExist(drive: any, folderName: string): Pr
 }
 
 
-export async function uploadFileToDrive(file: File, newName: string): Promise<{id: string, name: string}> {
+export async function uploadFileToDrive(
+    file: File, 
+    newName: string,
+    onProgress: (progress: number) => void
+): Promise<{id: string, name: string}> {
   const client = await getAuthenticatedClient();
   if (!client) {
     throw new Error("Google Drive not connected.");
@@ -120,6 +128,11 @@ export async function uploadFileToDrive(file: File, newName: string): Promise<{i
     requestBody: fileMetadata,
     media: media,
     fields: 'id, name',
+  }, {
+    onUploadProgress: (evt) => {
+        const progress = Math.round((evt.bytesRead / file.size) * 100);
+        onProgress(progress);
+    }
   });
 
   if (!response.data.id || !response.data.name) {
@@ -158,3 +171,5 @@ export async function renameGoogleFile(fileId: string, newName: string): Promise
         }
     });
 }
+
+    
