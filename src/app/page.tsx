@@ -8,11 +8,12 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/icons";
-import { Search, Upload, Film, FileWarning, Disc3 } from "lucide-react";
+import { Search, Upload, Film, FileWarning, Disc3, RefreshCw } from "lucide-react";
 import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
 import { RefineTagsModal } from "@/components/refine-tags-modal";
 import { cn } from "@/lib/utils";
+import { getUnprocessedVideos, getGoogleFile, isGoogleDriveConnected } from "@/lib/google-drive";
 
 export interface VideoFile {
   id: string;
@@ -22,16 +23,23 @@ export interface VideoFile {
   tags: string | null;
   status: "queued" | "processing" | "success" | "error";
   error?: string;
+  isDriveFile?: boolean;
 }
 
 export default function Home() {
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
   const [selectedVideoForPlayback, setSelectedVideoForPlayback] = useState<VideoFile | null>(null);
   const [selectedVideoForRefinement, setSelectedVideoForRefinement] = useState<VideoFile | null>(null);
 
   const { toast } = useToast();
+
+  useEffect(() => {
+    isGoogleDriveConnected().then(setDriveConnected);
+  }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -59,6 +67,55 @@ export default function Home() {
 
     setVideos(prev => [...prev, ...newVideos]);
   };
+  
+  const handleSyncDrive = useCallback(async () => {
+    setIsSyncing(true);
+    toast({ title: "Syncing with Google Drive...", description: "Looking for new videos in 'VeoVision-Uploads'." });
+
+    try {
+      const driveVideos = await getUnprocessedVideos();
+      if (driveVideos.length === 0) {
+        toast({ title: "No new videos found", description: "Your Google Drive folder is up to date." });
+        setIsSyncing(false);
+        return;
+      }
+      
+      toast({ title: `Found ${driveVideos.length} new videos`, description: "Starting to process them now." });
+      
+      for (const driveVideo of driveVideos) {
+          try {
+              const fileBlob = await getGoogleFile(driveVideo.id);
+              const file = new File([fileBlob], driveVideo.name, { type: fileBlob.type });
+
+              const newVideo: VideoFile = {
+                id: driveVideo.id,
+                file: file,
+                objectURL: URL.createObjectURL(file),
+                thumbnail: null,
+                tags: null,
+                status: "queued",
+                isDriveFile: true,
+              };
+              setVideos(prev => [newVideo, ...prev]);
+
+          } catch (fileError) {
+              console.error(`Failed to process Drive file ${driveVideo.name}:`, fileError);
+              toast({ variant: "destructive", title: `Error with ${driveVideo.name}`, description: "Could not download file from Google Drive." });
+          }
+      }
+
+    } catch (error) {
+      console.error("Failed to sync with Google Drive", error);
+      toast({
+        variant: "destructive",
+        title: "Sync Failed",
+        description: "Could not connect to Google Drive. Please check your connection and try again.",
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+
+  }, [toast]);
 
   const extractFrame = useCallback((file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -170,6 +227,8 @@ export default function Home() {
     }
   };
 
+  const isUploadingOrSyncing = isProcessing || isSyncing;
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="sticky top-0 z-10 w-full bg-background/80 backdrop-blur-md border-b">
@@ -182,9 +241,15 @@ export default function Home() {
               </h1>
             </div>
             <div className="flex items-center gap-2">
-              <Link href="/drive" className={cn(buttonVariants({ size: "sm", variant: "outline" }))}>
+               {driveConnected && (
+                <Button size="sm" variant="outline" onClick={handleSyncDrive} disabled={isUploadingOrSyncing}>
+                  <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>Sync Drive</span>
+                </Button>
+              )}
+              <Link href="/drive" className={cn(buttonVariants({ size: "sm", variant: "outline" }), !driveConnected && "animate-pulse")}>
                 <Disc3 className="h-4 w-4" />
-                <span>Sync with Drive</span>
+                <span>{driveConnected ? 'Drive Connected' : 'Connect Drive'}</span>
               </Link>
               <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2")}>
                 <Upload className="h-4 w-4" />
@@ -197,7 +262,7 @@ export default function Home() {
                 accept="video/*"
                 className="sr-only"
                 onChange={handleFileChange}
-                disabled={isProcessing}
+                disabled={isUploadingOrSyncing}
               />
             </div>
           </div>

@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Copy, Pencil, AlertCircle, Loader2 } from "lucide-react";
+import { Play, Copy, Pencil, AlertCircle, Loader2, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface VideoCardProps {
@@ -55,6 +55,10 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
         return null;
     }
   };
+  
+  const handleSaveToDrive = async () => {
+    toast({ title: 'This feature is not yet implemented.'})
+  }
 
   return (
     <Card className="flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
@@ -91,9 +95,15 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
             <Button variant="outline" size="icon" onClick={onPlay} aria-label="Play video">
               <Play className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={handleCopy} aria-label="Copy tags">
-              <Copy className="h-4 w-4" />
-            </Button>
+            {video.isDriveFile ? (
+               <Button variant="outline" size="icon" onClick={handleSaveToDrive} aria-label="Save to Drive">
+                  <Save className="h-4 w-4" />
+               </Button>
+            ) : (
+               <Button variant="outline" size="icon" onClick={handleCopy} aria-label="Copy tags">
+                  <Copy className="h-4 w-4" />
+               </Button>
+            )}
             <Button variant="default" size="icon" onClick={onRefine} className="bg-accent hover:bg-accent/90" aria-label="Refine tags">
               <Pencil className="h-4 w-4 text-accent-foreground" />
             </Button>
