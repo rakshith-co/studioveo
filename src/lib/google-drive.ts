@@ -26,21 +26,6 @@ export async function getGoogleAuthUrl() {
   return url;
 }
 
-export async function getGoogleTokens(code: string) {
-  const oauth2Client = getOAuth2Client();
-  const { tokens } = await oauth2Client.getToken(code);
-  
-  cookies().set("google-tokens", JSON.stringify(tokens), {
-    httpOnly: true,
-    maxAge: 60 * 60 * 24 * 365, // 1 year
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-  });
-
-  oauth2Client.setCredentials(tokens);
-  redirect('/drive');
-}
-
 export async function getAuthenticatedClient() {
   const oauth2Client = getOAuth2Client();
   try {

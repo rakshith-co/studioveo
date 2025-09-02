@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { getGoogleAuthUrl, getGoogleTokens, isGoogleDriveConnected } from "@/lib/google-drive";
+import { useRouter } from "next/navigation";
+import { getGoogleAuthUrl, isGoogleDriveConnected } from "@/lib/google-drive";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Disc3, CheckCircle, XCircle } from "lucide-react";
@@ -10,7 +10,6 @@ import Link from "next/link";
 
 export default function DrivePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -22,21 +21,12 @@ export default function DrivePage() {
       setIsLoading(false);
     };
 
-    const code = searchParams.get("code");
-    if (code) {
-      getGoogleTokens(code).catch(error => {
-        console.error("Failed to exchange code for tokens", error);
-        setIsConnected(false);
-        setIsLoading(false);
-      });
-    } else {
-      checkConnection();
-    }
-  }, [searchParams, router]);
+    checkConnection();
+  }, []);
 
   const handleConnect = async () => {
     const url = await getGoogleAuthUrl();
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(url, "_self");
   };
   
   const renderContent = () => {
