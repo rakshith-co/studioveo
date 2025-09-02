@@ -126,7 +126,7 @@ export async function uploadFileToDrive(
 
   const response = await drive.files.create(
     {
-      requestBody: fileMetadata,
+      resource: fileMetadata,
       media: media,
       fields: 'id,name',
     },
