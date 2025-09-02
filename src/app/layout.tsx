@@ -20,7 +20,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background overflow-hidden">
-        <div className="fixed inset-0 z-[-10] h-full w-full bg-[linear-gradient(to_bottom,hsl(var(--primary)),#000)] opacity-40" />
+        <div className="fixed inset-0 z-[-10] h-full w-full bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,hsl(var(--primary)),rgba(255,255,255,0))] opacity-30" />
         {children}
         <Toaster />
       </body>

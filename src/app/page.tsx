@@ -14,7 +14,7 @@ import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
 import { RefineTagsModal } from "@/components/refine-tags-modal";
 import { cn } from "@/lib/utils";
-import { isGoogleDriveConnected, uploadFileToDrive } from "@/lib/google-drive";
+import { isGoogleDriveConnected, uploadFileToDrive, getGoogleAuthUrl } from "@/lib/google-drive";
 import { Sidebar } from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { renameGoogleFile } from "@/lib/google-drive";
@@ -49,12 +49,12 @@ export default function HomePage() {
     if (!files) return;
 
     if (!driveConnected) {
-      toast({
-        variant: "destructive",
-        title: "Google Drive Not Connected",
-        description: "Please connect your Google Drive account before uploading videos.",
-      });
-      return;
+        toast({
+            variant: "destructive",
+            title: "Google Drive Not Connected",
+            description: "Please connect your Google Drive account before uploading videos.",
+        });
+        return;
     }
 
     const newVideos: VideoFile[] = Array.from(files)
@@ -206,6 +206,20 @@ export default function HomePage() {
 
   const heroVideo = useMemo(() => videos.find(v => v.status === 'success') || null, [videos]);
 
+  const handleConnectDrive = async () => {
+    try {
+        const url = await getGoogleAuthUrl();
+        window.location.href = url;
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Failed to connect",
+            description: "Could not get Google authentication URL."
+        });
+    }
+  };
+
+
   return (
     <div className="flex h-screen w-full">
       <Sidebar />
@@ -224,7 +238,7 @@ export default function HomePage() {
                     />
                 </div>
                 <div className="flex items-center gap-4">
-                    <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': !driveConnected || isProcessing })}>
+                    <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': driveConnected === false || isProcessing })}>
                         <Upload className="h-4 w-4" />
                         <span>{isProcessing ? "Processing..." : "Upload"}</span>
                     </label>
@@ -235,9 +249,9 @@ export default function HomePage() {
                         accept="video/*"
                         className="sr-only"
                         onChange={handleFileChange}
-                        disabled={!driveConnected || isProcessing}
+                        disabled={driveConnected === false || isProcessing}
                     />
-                     <Link href="/drive" className={cn(buttonVariants({ size: "icon", variant: "ghost" }), !driveConnected && "animate-pulse")}>
+                     <Link href="/drive" className={cn(buttonVariants({ size: "icon", variant: "ghost" }), driveConnected === false && "animate-pulse")}>
                         {driveConnected ? <CheckCircle className="h-5 w-5 text-green-500" /> : <Disc3 className="h-5 w-5" />}
                     </Link>
                 </div>
@@ -286,15 +300,19 @@ export default function HomePage() {
                 </>
             ) : (
             <div className="flex flex-col items-center justify-center h-[60vh] text-center text-muted-foreground">
-                <Clapperboard className="w-24 h-24 mb-4" />
+                <Clapperboard className="w-24 h-24 mb-4 text-primary/50" />
                 <h2 className="text-2xl font-semibold text-foreground">Welcome to Revspot Vision</h2>
                 <p className="max-w-md mt-2">
                 Connect your Google Drive, then upload videos. We'll analyze them, tag them, and save them directly to your Drive.
                 </p>
-                 <label htmlFor="video-upload-main" className={cn(buttonVariants({ size: "lg", className: "mt-6" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': !driveConnected || isProcessing })}>
+                { driveConnected === false ? (
+                    <Button onClick={handleConnectDrive} size="lg" className="mt-6">Connect Google Drive</Button>
+                ) : (
+                 <label htmlFor="video-upload-main" className={cn(buttonVariants({ size: "lg", className: "mt-6" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': isProcessing })}>
                     <Upload className="h-4 w-4" />
                     <span>{isProcessing ? "Processing..." : "Upload Your First Video"}</span>
                 </label>
+                )}
                 <input
                     id="video-upload-main"
                     type="file"
@@ -302,7 +320,7 @@ export default function HomePage() {
                     accept="video/*"
                     className="sr-only"
                     onChange={handleFileChange}
-                    disabled={!driveConnected || isProcessing}
+                    disabled={driveConnected === false || isProcessing}
                 />
             </div>
             )}
