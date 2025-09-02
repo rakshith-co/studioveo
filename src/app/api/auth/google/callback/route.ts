@@ -1,20 +1,6 @@
-import { getOAuth2Client } from "@/lib/google-drive";
-import { cookies } from "next/headers";
+import { google } from "googleapis";
+import { cookies, headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-
-// This is a helper function to get the OAuth2 client.
-// It's defined here to avoid exporting it from google-drive.ts and making it a Server Action.
-const getClient = () => {
-    const host = headers().get('host');
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const redirectUri = `${protocol}://${host}/api/auth/google/callback`;
-
-    return new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        redirectUri
-      );
-}
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
