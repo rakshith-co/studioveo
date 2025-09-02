@@ -124,16 +124,19 @@ export async function uploadFileToDrive(
     body: readable,
   };
 
-  const response = await drive.files.create({
-    requestBody: fileMetadata,
-    media: media,
-    fields: 'id, name',
-  }, {
-    onUploadProgress: (evt) => {
+  const response = await drive.files.create(
+    {
+      requestBody: fileMetadata,
+      media: media,
+      fields: 'id,name',
+    },
+    {
+      onUploadProgress: (evt) => {
         const progress = Math.round((evt.bytesRead / file.size) * 100);
         onProgress(progress);
+      },
     }
-  });
+  );
 
   if (!response.data.id || !response.data.name) {
     throw new Error('Failed to get file ID or name from Google Drive API response.');
@@ -171,5 +174,3 @@ export async function renameGoogleFile(fileId: string, newName: string): Promise
         }
     });
 }
-
-    
