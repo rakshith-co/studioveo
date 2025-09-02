@@ -3,14 +3,10 @@
 
 import Image from "next/image";
 import { type VideoFile } from "@/app/page";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Play, Pencil, AlertCircle, Loader2, UploadCloud } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface VideoCardProps {
   video: VideoFile;
@@ -20,76 +16,74 @@ interface VideoCardProps {
 
 export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
   
-  const renderStatus = () => {
+  const renderStatusOverlay = () => {
+    let statusContent = null;
     switch (video.status) {
       case "processing":
-        return (
-          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-2 text-center">
-            <Loader2 className="h-8 w-8 animate-spin mb-2" />
-            <p className="text-sm font-semibold">Analyzing...</p>
-          </div>
+        statusContent = (
+          <>
+            <Loader2 className="h-6 w-6 animate-spin mb-2" />
+            <p className="text-xs font-semibold">Analyzing...</p>
+          </>
         );
+        break;
       case "uploading":
-        return (
-            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-2 text-center">
-              <UploadCloud className="h-8 w-8 animate-bounce mb-2" />
-              <p className="text-sm font-semibold">Saving to Drive...</p>
-            </div>
-          );
-      case "error":
-        return (
-          <div className="absolute inset-0 bg-destructive/80 flex flex-col items-center justify-center text-destructive-foreground p-2 text-center">
-            <AlertCircle className="h-8 w-8 mb-2" />
-            <p className="text-sm font-semibold">Error</p>
-            <p className="text-xs mt-1">{video.error}</p>
-          </div>
+        statusContent = (
+          <>
+            <UploadCloud className="h-6 w-6 animate-bounce mb-2" />
+            <p className="text-xs font-semibold">Saving to Drive...</p>
+          </>
         );
+        break;
+      case "error":
+        statusContent = (
+          <>
+            <AlertCircle className="h-6 w-6 mb-2" />
+            <p className="text-xs font-semibold">Error</p>
+          </>
+        );
+        break;
       default:
         return null;
     }
+    return (
+        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-2 text-center z-10">
+            {statusContent}
+        </div>
+    )
   };
 
   return (
-    <Card className="flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-      <div className="p-0">
-        <div className="relative aspect-video w-full">
-          {video.thumbnail ? (
-            <Image
-              src={video.thumbnail}
-              alt={`Frame from ${video.file.name}`}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
-          ) : (
-            <Skeleton className="h-full w-full" />
-          )}
-          {renderStatus()}
-        </div>
-      </div>
-      <CardContent className="p-4 flex-grow">
-        <div className="text-sm text-muted-foreground break-words">
-            {video.tags ? (
-                video.tags
-            ) : video.status === 'success' || video.status === 'error' ? (
-                <span className="text-destructive-foreground">{video.file.name}</span>
+    <div className="group relative rounded-xl overflow-hidden transition-all duration-300 ease-in-out hover:shadow-primary/20 hover:shadow-lg hover:-translate-y-1">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
+        <div className="relative aspect-[2/3] w-full">
+            {video.thumbnail ? (
+                <Image
+                src={video.thumbnail}
+                alt={`Frame from ${video.file.name}`}
+                fill
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
             ) : (
-                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-full w-full" />
             )}
+            {renderStatusOverlay()}
         </div>
-      </CardContent>
-      <CardFooter className="p-4 pt-0 flex justify-end gap-2">
+       <div className="absolute bottom-0 left-0 p-4 z-20 w-full">
+            <h3 className="font-semibold text-white truncate">{video.tags || <Skeleton className="h-5 w-3/4" />}</h3>
+            <p className="text-xs text-muted-foreground truncate">{video.tags ? video.file.name : 'Processing...'}</p>
+       </div>
         {video.status === "success" && (
-          <>
-            <Button variant="outline" size="icon" onClick={onPlay} aria-label="Play video">
-              <Play className="h-4 w-4" />
-            </Button>
-            <Button variant="default" size="icon" onClick={onRefine} className="bg-accent hover:bg-accent/90" aria-label="Refine tags">
-              <Pencil className="h-4 w-4 text-accent-foreground" />
-            </Button>
-          </>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <Button variant="default" size="icon" className="rounded-full h-12 w-12" onClick={onPlay} aria-label="Play video">
+                    <Play className="h-5 w-5" />
+                </Button>
+                <Button variant="secondary" size="icon" className="rounded-full h-12 w-12" onClick={onRefine} aria-label="Refine tags">
+                    <Pencil className="h-5 w-5" />
+                </Button>
+            </div>
         )}
-      </CardFooter>
-    </Card>
+    </div>
   );
 }

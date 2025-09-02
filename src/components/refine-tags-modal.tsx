@@ -13,7 +13,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { type VideoFile } from "@/app/page";
@@ -52,7 +51,7 @@ export function RefineTagsModal({ video, onOpenChange, onRefine }: RefineTagsMod
 
   return (
     <Dialog open={!!video} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] glassmorphic border-primary/20">
         <DialogHeader>
           <DialogTitle>Refine Video Tags</DialogTitle>
           <DialogDescription>
@@ -62,7 +61,7 @@ export function RefineTagsModal({ video, onOpenChange, onRefine }: RefineTagsMod
         <div className="py-4">
             <div className="space-y-2">
                 <h4 className="font-medium text-sm">Original Tags</h4>
-                <p className="text-sm p-3 bg-muted rounded-md text-muted-foreground break-words">{video.tags}</p>
+                <p className="text-sm p-3 bg-black/20 rounded-md text-muted-foreground break-words">{video.tags}</p>
             </div>
             <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
@@ -76,6 +75,7 @@ export function RefineTagsModal({ video, onOpenChange, onRefine }: RefineTagsMod
                         <Textarea
                         placeholder="e.g., 'This is a kitchen, not a living room. Add 'modern appliances' tag.'"
                         {...field}
+                        className="bg-black/20"
                         />
                     </FormControl>
                     <FormMessage />
@@ -84,7 +84,7 @@ export function RefineTagsModal({ video, onOpenChange, onRefine }: RefineTagsMod
                 />
                  <DialogFooter>
                     <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancel</Button>
-                    <Button type="submit" disabled={isSubmitting} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                    <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Refine Tags
                     </Button>

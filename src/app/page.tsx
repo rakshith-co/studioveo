@@ -3,18 +3,21 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from 'next/link';
+import Image from "next/image";
 import { generateVideoTags } from "@/ai/flows/generate-video-tags";
 import { refineVideoTags } from "@/ai/flows/refine-video-tags-with-user-feedback";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Logo } from "@/components/icons";
-import { Search, Upload, Film, Disc3, CheckCircle } from "lucide-react";
+import { Search, Upload, Disc3, CheckCircle, Play, Pencil, Clapperboard } from "lucide-react";
 import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
 import { RefineTagsModal } from "@/components/refine-tags-modal";
 import { cn } from "@/lib/utils";
-import { isGoogleDriveConnected, uploadFileToDrive, renameGoogleFile } from "@/lib/google-drive";
+import { isGoogleDriveConnected, uploadFileToDrive } from "@/lib/google-drive";
+import { Sidebar } from "@/components/sidebar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { renameGoogleFile } from "@/lib/google-drive";
 
 export interface VideoFile {
   id: string;
@@ -27,7 +30,7 @@ export interface VideoFile {
   error?: string;
 }
 
-export default function Home() {
+export default function HomePage() {
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -74,7 +77,7 @@ export default function Home() {
       });
     }
 
-    setVideos(prev => [...prev, ...newVideos]);
+    setVideos(prev => [...newVideos, ...prev]);
   };
 
   const extractFrame = useCallback((file: File): Promise<string> => {
@@ -130,22 +133,17 @@ export default function Home() {
       setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "processing" } : v));
 
       try {
-        // Step 1: Extract frame and generate thumbnail
         const frameDataUri = await extractFrame(videoToProcess.file);
         setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, thumbnail: frameDataUri } : v));
 
-        // Step 2: Generate AI tags
         const tagResult = await generateVideoTags({
           frameDataUri,
           filename: videoToProcess.file.name,
         });
         const newTags = tagResult.tags;
         setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, tags: newTags } : v));
-        toast({ title: "Tags Generated", description: `AI created tags for ${videoToProcess.file.name}.` });
-
-        // Step 3: Upload to Google Drive with new tags
+        
         setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "uploading" } : v));
-        toast({ title: "Uploading to Drive...", description: `Uploading ${newTags}...` });
         
         const driveFile = await uploadFileToDrive(videoToProcess.file, newTags);
         
@@ -153,16 +151,6 @@ export default function Home() {
         toast({
             title: "Upload Complete!",
             description: `${newTags} is now in your Google Drive.`,
-            action: (
-                <a
-                  href={`https://drive.google.com/file/d/${driveFile.id}/view`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                >
-                  View in Drive
-                </a>
-              ),
         });
 
       } catch (error) {
@@ -197,7 +185,6 @@ export default function Home() {
       });
       const refinedTags = result.refinedTags;
       
-      // Rename the file in Google Drive
       await renameGoogleFile(video.driveId, refinedTags);
 
       setVideos(prev => prev.map(v => v.id === video.id ? { ...v, tags: refinedTags } : v));
@@ -217,80 +204,110 @@ export default function Home() {
     }
   };
 
+  const heroVideo = useMemo(() => videos.find(v => v.status === 'success') || null, [videos]);
+
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="sticky top-0 z-10 w-full bg-background/80 backdrop-blur-md border-b">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <Logo className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground">
-                VeoVision Indexer
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link href="/drive" className={cn(buttonVariants({ size: "sm", variant: "outline" }), !driveConnected && "animate-pulse")}>
-                {driveConnected ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Disc3 className="h-4 w-4" />}
-                <span>{driveConnected ? 'Drive Connected' : 'Connect Drive'}</span>
-              </Link>
-              <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': !driveConnected || isProcessing })}>
-                <Upload className="h-4 w-4" />
-                <span>{isProcessing ? "Processing..." : "Upload Videos"}</span>
-              </label>
-              <input
-                id="video-upload"
-                type="file"
-                multiple
-                accept="video/*"
-                className="sr-only"
-                onChange={handleFileChange}
-                disabled={!driveConnected || isProcessing}
-              />
+    <div className="flex h-screen w-full">
+      <Sidebar />
+      <div className="flex flex-col flex-1 h-screen overflow-y-auto">
+        <header className="sticky top-0 z-10 w-full bg-background/50 backdrop-blur-md">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-20">
+                <div className="relative w-full max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                        type="search"
+                        placeholder="Search by tags..."
+                        className="pl-10 w-full bg-black/20 focus-visible:ring-primary focus-visible:ring-offset-0"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="flex items-center gap-4">
+                    <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': !driveConnected || isProcessing })}>
+                        <Upload className="h-4 w-4" />
+                        <span>{isProcessing ? "Processing..." : "Upload"}</span>
+                    </label>
+                    <input
+                        id="video-upload"
+                        type="file"
+                        multiple
+                        accept="video/*"
+                        className="sr-only"
+                        onChange={handleFileChange}
+                        disabled={!driveConnected || isProcessing}
+                    />
+                     <Link href="/drive" className={cn(buttonVariants({ size: "icon", variant: "ghost" }), !driveConnected && "animate-pulse")}>
+                        {driveConnected ? <CheckCircle className="h-5 w-5 text-green-500" /> : <Disc3 className="h-5 w-5" />}
+                    </Link>
+                </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
-        {videos.length > 0 ? (
-          <>
-            <div className="relative mb-8">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search by tags..."
-                className="pl-10 w-full"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-              {filteredVideos.map(video => (
-                <VideoCard
-                  key={video.id}
-                  video={video}
-                  onPlay={() => setSelectedVideoForPlayback(video)}
-                  onRefine={() => setSelectedVideoForRefinement(video)}
+        <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+            {heroVideo ? (
+                <div className="mb-12">
+                    <div className="relative aspect-video w-full rounded-2xl overflow-hidden shadow-2xl shadow-primary/20">
+                        <Image src={heroVideo.thumbnail!} alt={heroVideo.tags || "Hero video"} fill className="object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                        <div className="absolute bottom-0 left-0 p-8 text-white">
+                            <h2 className="text-4xl font-bold mb-2">{heroVideo.tags?.split('_').slice(1,3).join(' ')}</h2>
+                            <p className="text-lg text-muted-foreground">{heroVideo.tags}</p>
+                            <div className="mt-4 flex gap-4">
+                                <Button onClick={() => setSelectedVideoForPlayback(heroVideo)} size="lg">
+                                    <Play className="mr-2"/> Play
+                                </Button>
+                                <Button onClick={() => setSelectedVideoForRefinement(heroVideo)} size="lg" variant="secondary">
+                                    <Pencil className="mr-2"/> Refine
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : videos.length > 0 ? (
+                <Skeleton className="w-full aspect-video rounded-2xl mb-12"/>
+            ): null}
+
+
+            {videos.length > 0 ? (
+                <>
+                    <h2 className="text-2xl font-bold mb-6">Your Library</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    {filteredVideos.map(video => (
+                        <VideoCard
+                        key={video.id}
+                        video={video}
+                        onPlay={() => setSelectedVideoForPlayback(video)}
+                        onRefine={() => setSelectedVideoForRefinement(video)}
+                        />
+                    ))}
+                    </div>
+                </>
+            ) : (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-center text-muted-foreground">
+                <Clapperboard className="w-24 h-24 mb-4" />
+                <h2 className="text-2xl font-semibold text-foreground">Welcome to VeoVision Indexer</h2>
+                <p className="max-w-md mt-2">
+                Connect your Google Drive, then upload videos. We'll analyze them, tag them, and save them directly to your Drive.
+                </p>
+                 <label htmlFor="video-upload-main" className={cn(buttonVariants({ size: "lg", className: "mt-6" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': !driveConnected || isProcessing })}>
+                    <Upload className="h-4 w-4" />
+                    <span>{isProcessing ? "Processing..." : "Upload Your First Video"}</span>
+                </label>
+                <input
+                    id="video-upload-main"
+                    type="file"
+                    multiple
+                    accept="video/*"
+                    className="sr-only"
+                    onChange={handleFileChange}
+                    disabled={!driveConnected || isProcessing}
                 />
-              ))}
             </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-[60vh] text-center text-muted-foreground">
-            <Film className="w-24 h-24 mb-4" />
-            <h2 className="text-2xl font-semibold text-foreground">Welcome to VeoVision Indexer</h2>
-            <p className="max-w-md mt-2">
-              Connect your Google Drive, then upload videos. We'll analyze them, tag them, and save them directly to your Drive.
-            </p>
-          </div>
-        )}
-      </main>
-
-      {videos.length > 0 && (
-          <footer className="text-center p-4 text-sm text-muted-foreground">
-              <p>Showing {filteredVideos.length} of {videos.length} videos. All uploaded videos are automatically saved to your Google Drive.</p>
-          </footer>
-      )}
+            )}
+        </main>
+      </div>
 
       {selectedVideoForPlayback && (
         <VideoPlayerModal
@@ -309,3 +326,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

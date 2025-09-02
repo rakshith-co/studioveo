@@ -17,7 +17,7 @@ interface VideoPlayerModalProps {
 export function VideoPlayerModal({ video, onOpenChange }: VideoPlayerModalProps) {
   return (
     <Dialog open={!!video} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl glassmorphic border-primary/20">
         <DialogHeader>
           <DialogTitle className="truncate">{video.tags || video.file.name}</DialogTitle>
           <DialogDescription>
