@@ -21,12 +21,19 @@ export default function DrivePage() {
       setIsLoading(false);
     };
 
+    const interval = setInterval(() => {
+        checkConnection();
+    }, 2000);
+
+
     checkConnection();
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleConnect = async () => {
     const url = await getGoogleAuthUrl();
-    window.open(url, "_self");
+    window.open(url, "_blank");
   };
   
   const renderContent = () => {
