@@ -76,7 +76,7 @@ export default function DrivePage() {
         </div>
     )
 
-  }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -85,7 +85,7 @@ export default function DrivePage() {
           <CardTitle>Google Drive Sync</CardTitle>
           <CardDescription>
             Connect your account to automatically process videos from Google Drive.
-          </Description>
+          </CardDescription>
         </CardHeader>
         <CardContent>
             {renderContent()}
