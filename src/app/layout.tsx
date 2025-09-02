@@ -21,8 +21,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-background overflow-hidden">
         <div className="fixed inset-0 z-[-10] h-full w-full bg-background">
-          <div className="absolute bottom-0 left-[-20%] right-0 top-[-10%] h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle_farthest-side,rgba(255,0,182,.15),rgba(255,255,255,0))]"></div>
-          <div className="absolute bottom-0 right-[-20%] top-[-10%] h-[500px] w-[500px] rounded-full bg-[radial-gradient(circle_farthest-side,rgba(255,0,182,.15),rgba(255,255,255,0))]"></div>
+          <div className="absolute left-0 top-0 h-full w-full bg-[radial-gradient(circle_farthest-side_at_35%_40%,_rgba(180,0,0,0.15),_rgba(0,0,0,0))]"></div>
         </div>
         {children}
         <Toaster />
