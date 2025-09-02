@@ -2,14 +2,19 @@
 
 import { google } from "googleapis";
 import { cookies } from "next/headers";
-import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 
+const getRedirectUri = () => {
+    const host = headers().get('host');
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    return `${protocol}://${host}/api/auth/google/callback`;
+}
 
 const getOAuth2Client = () => {
     return new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
+        getRedirectUri()
       );
 }
 
