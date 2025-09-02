@@ -34,16 +34,69 @@ const prompt = ai.definePrompt({
   name: 'generateVideoTagsPrompt',
   input: {schema: GenerateVideoTagsInputSchema},
   output: {schema: GenerateVideoTagsOutputSchema},
-  prompt: `You are an expert in real estate video analysis and tagging.
+  prompt: `You are an expert in real estate video analysis and tagging. Your task is to generate a descriptive filename for a video based on a single frame.
 
-  Analyze the following video frame and generate descriptive tags for the video.
-  The tags should be in the format YYYYMMDD_<PrimarySubject>_<KeyAttributes>_<ShotStyle?>_<TopTagCluster>_<shortHash>.mp4
-  based on a real estate video catalog and what's visible in the frame.
+  The filename format is: YYYYMMDD_<PrimarySubject>_<KeyAttributes>_<ShotStyle?>_<TopTagCluster>_<shortHash>.mp4
 
+  Analyze the provided frame and use the following catalog to determine the best tags. If you cannot find a perfect match, use your best judgment to create a descriptive and optimized filename.
+
+  **CATALOG:**
+
+  **Macro / Exterior Shots**
+  - Drone aerial
+  - Tower façade
+  - Villa exterior
+  - Plots / land
+  - Golf course
+  - Mountains backdrop
+  - Expressway
+  - Entrance gate
+  - Clubhouse exterior
+  - Rooftop terrace
+  - Pool deck
+
+  **Interior & Lifestyle**
+  - Lobby
+  - Gym
+  - Spa
+  - Kids play
+  - Living room
+  - Kitchen
+  - Bedroom
+  - Master suite
+  - Bathroom
+  - Balcony view
+  - Show flat
+
+  **Lighting & Atmosphere**
+  - Golden hour
+  - Blue hour
+  - Daytime clear
+  - Lush greenery
+  - Water features
+  - Glass façade
+  - Low-density spacing
+
+  **Camera Motions & Cinematic Moves**
+  - Slow dolly
+  - Gimbal walk
+  - Orbit
+  - Pull-back reveal
+  - Parallax lateral
+  - Crane up
+  - FPV sweep
+
+  **Connectivity & Infrastructure**
+  - Metro connectivity (station exterior, metro trains arriving/leaving, skyline with metro line)
+  - Road connectivity (expressway flyovers, arterial roads, smooth traffic shots)
+  - Train connectivity (long-distance trains, modern stations, bridges)
+  - Airport connectivity (aerial view of runway, aircraft taking off/landing, modern terminal)
+
+  **INPUT:**
   Frame: {{media url=frameDataUri}}
-  Filename: {{{filename}}}
+  Original Filename: {{{filename}}}
 
-  Respond only with the generated tags. Do not include any additional explanations or context.
+  Respond only with the generated filename. Do not include any additional explanations or context.
 `,
 });
 
