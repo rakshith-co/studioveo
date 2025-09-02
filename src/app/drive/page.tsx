@@ -24,17 +24,11 @@ export default function DrivePage() {
 
     const code = searchParams.get("code");
     if (code) {
-      const exchangeCodeForTokens = async () => {
-        try {
-          await getGoogleTokens(code);
-          router.replace("/drive");
-        } catch (error) {
-          console.error("Failed to exchange code for tokens", error);
-          setIsConnected(false);
-          setIsLoading(false);
-        }
-      };
-      exchangeCodeForTokens();
+      getGoogleTokens(code).catch(error => {
+        console.error("Failed to exchange code for tokens", error);
+        setIsConnected(false);
+        setIsLoading(false);
+      });
     } else {
       checkConnection();
     }
@@ -91,7 +85,7 @@ export default function DrivePage() {
           <CardTitle>Google Drive Sync</CardTitle>
           <CardDescription>
             Connect your account to automatically process videos from Google Drive.
-          </CardDescription>
+          </Description>
         </CardHeader>
         <CardContent>
             {renderContent()}

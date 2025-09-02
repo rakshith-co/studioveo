@@ -2,6 +2,8 @@
 
 import { google } from "googleapis";
 import { cookies } from "next/headers";
+import { redirect } from 'next/navigation'
+
 
 const getOAuth2Client = () => {
     return new google.auth.OAuth2(
@@ -36,7 +38,7 @@ export async function getGoogleTokens(code: string) {
   });
 
   oauth2Client.setCredentials(tokens);
-  return tokens;
+  redirect('/drive');
 }
 
 export async function getAuthenticatedClient() {
