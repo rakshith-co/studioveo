@@ -22,7 +22,7 @@ const getOAuth2Client = () => {
 }
 
 const DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.file"];
-const FOLDER_NAME = "VeoVision-Uploads";
+const FOLDER_NAME = "RevspotVision-Uploads";
 
 export async function getGoogleAuthUrl() {
   const oauth2Client = getOAuth2Client();

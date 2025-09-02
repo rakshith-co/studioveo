@@ -51,7 +51,7 @@ export default function DrivePage() {
                 <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Google Drive Connected</h2>
                 <p className="text-muted-foreground max-w-md mx-auto mb-6">
-                    You can now sync your videos from the "VeoVision-Uploads" folder in your Google Drive.
+                    You can now sync your videos from the "RevspotVision-Uploads" folder in your Google Drive.
                 </p>
                 <Button asChild>
                     <Link href="/">Back to Home</Link>
@@ -65,7 +65,7 @@ export default function DrivePage() {
             <XCircle className="w-16 h-16 text-destructive mb-4" />
             <h2 className="text-2xl font-bold mb-2">Connect to Google Drive</h2>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
-                To automatically tag and rename videos, connect your Google Drive account. The app will look for videos in a folder named "VeoVision-Uploads".
+                To automatically tag and rename videos, connect your Google Drive account. The app will look for videos in a folder named "RevspotVision-Uploads".
             </p>
             <Button onClick={handleConnect}>
                 <Disc3 className="mr-2 h-4 w-4" /> Connect to Google Drive

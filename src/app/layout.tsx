@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'VeoVision Indexer',
+  title: 'Revspot Vision',
   description: 'AI-powered video tagging for real estate.',
 };
 

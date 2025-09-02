@@ -1,12 +1,12 @@
-# VeoVision Indexer
+# Revspot Vision
 
-VeoVision Indexer is an AI-powered application designed to automatically analyze and tag real estate videos. It extracts a representative frame from each video, uses AI to generate a descriptive and searchable filename, and allows you to sync your video library directly from Google Drive.
+Revspot Vision is an AI-powered application designed to automatically analyze and tag real estate videos. It extracts a representative frame from each video, uses AI to generate a descriptive and searchable filename, and allows you to sync your video library directly from Google Drive.
 
 ## Features
 
 - **AI-Powered Tagging**: Automatically generates descriptive filenames based on video content.
 - **Direct Upload**: Upload videos directly from your computer.
-- **Google Drive Sync**: Connect your Google Drive and automatically process videos from a `VeoVision-Uploads` folder.
+- **Google Drive Sync**: Connect your Google Drive and automatically process videos from a `RevspotVision-Uploads` folder.
 - **Tag Refinement**: Manually refine the AI-generated tags to improve accuracy.
 - **Video Playback**: Instantly preview your videos within the app.
 - **Save to Drive**: Rename files in Google Drive with the new AI-generated tags with a single click.
@@ -90,7 +90,7 @@ GEMINI_API_KEY=YOUR_GEMINI_API_KEY
     - Sign in with a Google account that you added as a "Test User".
     - After authorizing, you will be redirected back to the app, which will now show "Drive Connected".
 2.  **Add Videos**: You have two options:
-    - **Google Drive**: Create a folder named `VeoVision-Uploads` in the root of your Google Drive. Place video files inside it. In the app, click the **Sync Drive** button to find and process new videos from this folder.
+    - **Google Drive**: Create a folder named `RevspotVision-Uploads` in the root of your Google Drive. Place video files inside it. In the app, click the **Sync Drive** button to find and process new videos from this folder.
     - **Direct Upload**: Click the **Upload Videos** button and select one or more video files from your computer.
 3.  **Processing and Tagging**:
     - The app will automatically process each new video. A thumbnail will be generated, and the AI will create a new filename (tag).

@@ -287,7 +287,7 @@ export default function HomePage() {
             ) : (
             <div className="flex flex-col items-center justify-center h-[60vh] text-center text-muted-foreground">
                 <Clapperboard className="w-24 h-24 mb-4" />
-                <h2 className="text-2xl font-semibold text-foreground">Welcome to VeoVision Indexer</h2>
+                <h2 className="text-2xl font-semibold text-foreground">Welcome to Revspot Vision</h2>
                 <p className="max-w-md mt-2">
                 Connect your Google Drive, then upload videos. We'll analyze them, tag them, and save them directly to your Drive.
                 </p>
@@ -326,5 +326,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
