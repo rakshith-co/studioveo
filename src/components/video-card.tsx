@@ -75,7 +75,7 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
         </div>
       </CardHeader>
       <CardContent className="p-4 flex-grow">
-        <p className="text-sm text-muted-foreground break-words">
+        <div className="text-sm text-muted-foreground break-words">
             {video.tags ? (
                 video.tags
             ) : video.status === 'success' || video.status === 'error' ? (
@@ -83,7 +83,7 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
             ) : (
                 <Skeleton className="h-4 w-3/4" />
             )}
-        </p>
+        </div>
       </CardContent>
       <CardFooter className="p-4 pt-0 flex justify-end gap-2">
         {video.status === "success" && (
