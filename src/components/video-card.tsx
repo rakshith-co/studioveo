@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Play, Copy, Pencil, AlertCircle, Loader2, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { renameGoogleFile } from "@/lib/google-drive";
+import { useState } from "react";
 
 interface VideoCardProps {
   video: VideoFile;
@@ -23,6 +25,7 @@ interface VideoCardProps {
 
 export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
   const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleCopy = () => {
     if (video.tags) {
@@ -57,7 +60,24 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
   };
   
   const handleSaveToDrive = async () => {
-    toast({ title: 'This feature is not yet implemented.'})
+    if (!video.tags || !video.id) return;
+    setIsSaving(true);
+    try {
+        await renameGoogleFile(video.id, video.tags);
+        toast({
+            title: "File Renamed",
+            description: `Successfully renamed file in Google Drive to "${video.tags}".`
+        });
+    } catch (error) {
+        console.error("Failed to rename file in Google Drive", error);
+        toast({
+            variant: "destructive",
+            title: "Rename Failed",
+            description: "Could not rename file in Google Drive."
+        });
+    } finally {
+        setIsSaving(false);
+    }
   }
 
   return (
@@ -96,8 +116,8 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
               <Play className="h-4 w-4" />
             </Button>
             {video.isDriveFile ? (
-               <Button variant="outline" size="icon" onClick={handleSaveToDrive} aria-label="Save to Drive">
-                  <Save className="h-4 w-4" />
+               <Button variant="outline" size="icon" onClick={handleSaveToDrive} aria-label="Save to Drive" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                </Button>
             ) : (
                <Button variant="outline" size="icon" onClick={handleCopy} aria-label="Copy tags">

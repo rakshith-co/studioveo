@@ -3,17 +3,20 @@
 import { google } from "googleapis";
 import { cookies } from "next/headers";
 
-const OAUTH2_CLIENT = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
+const getOAuth2Client = () => {
+    return new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+}
 
-const DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"];
+const DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.file"];
 const FOLDER_NAME = "VeoVision-Uploads";
 
 export async function getGoogleAuthUrl() {
-  const url = OAUTH2_CLIENT.generateAuthUrl({
+  const oauth2Client = getOAuth2Client();
+  const url = oauth2Client.generateAuthUrl({
     access_type: "offline",
     scope: DRIVE_SCOPES,
     prompt: "consent",
@@ -22,40 +25,48 @@ export async function getGoogleAuthUrl() {
 }
 
 export async function getGoogleTokens(code: string) {
-  const { tokens } = await OAUTH2_CLIENT.getToken(code);
+  const oauth2Client = getOAuth2Client();
+  const { tokens } = await oauth2Client.getToken(code);
   
   cookies().set("google-tokens", JSON.stringify(tokens), {
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 365, // 1 year
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
   });
 
-  OAUTH2_CLIENT.setCredentials(tokens);
+  oauth2Client.setCredentials(tokens);
   return tokens;
 }
 
 export async function getAuthenticatedClient() {
+  const oauth2Client = getOAuth2Client();
   try {
     const storedTokens = cookies().get("google-tokens")?.value;
     if (!storedTokens) {
       return null;
     }
     const tokens = JSON.parse(storedTokens);
-    OAUTH2_CLIENT.setCredentials(tokens);
+    oauth2Client.setCredentials(tokens);
 
-    // Refresh the token if it's expired
-    const { token: newAccessToken } = await OAUTH2_CLIENT.getAccessToken();
-    if (newAccessToken && newAccessToken !== tokens.access_token) {
-       const newTokens = { ...tokens, access_token: newAccessToken };
+    // It's good practice to see if the token is expired and refresh if necessary
+    // getAccessToken will handle this automatically if a refresh token is present
+    const refreshedTokenInfo = await oauth2Client.getAccessToken();
+    if (refreshedTokenInfo.token && refreshedTokenInfo.token !== tokens.access_token) {
+       const newTokens = { ...tokens, access_token: refreshedTokenInfo.token };
        cookies().set("google-tokens", JSON.stringify(newTokens), {
          httpOnly: true,
          maxAge: 60 * 60 * 24 * 365,
+         secure: process.env.NODE_ENV === 'production',
+         sameSite: 'lax',
        });
     }
 
-    return OAUTH2_CLIENT;
+    return oauth2Client;
   } catch (error) {
     console.error("Failed to get authenticated client", error);
-    cookies().delete("google-tokens"); // Clear invalid tokens
+    // If tokens are invalid, clear them
+    cookies().delete("google-tokens");
     return null;
   }
 }
@@ -71,7 +82,7 @@ export async function createFolderIfNotExist(drive: any, folderName: string): Pr
         fields: 'files(id)',
     });
 
-    if (res.data.files.length > 0) {
+    if (res.data.files && res.data.files.length > 0 && res.data.files[0].id) {
         return res.data.files[0].id;
     }
 
@@ -83,8 +94,9 @@ export async function createFolderIfNotExist(drive: any, folderName: string): Pr
         resource: fileMetadata,
         fields: 'id',
     });
-    return folder.data.id;
+    return folder.data.id!;
 }
+
 
 export async function getUnprocessedVideos(): Promise<{id: string, name: string}[]> {
   const client = await getAuthenticatedClient();
@@ -121,4 +133,18 @@ export async function getGoogleFile(fileId: string): Promise<Blob> {
     );
     
     return res.data as unknown as Blob;
+}
+
+export async function renameGoogleFile(fileId: string, newName: string): Promise<void> {
+    const client = await getAuthenticatedClient();
+    if (!client) {
+        throw new Error("Google Drive not connected.");
+    }
+    const drive = google.drive({ version: 'v3', auth: client });
+    await drive.files.update({
+        fileId: fileId,
+        requestBody: {
+            name: newName,
+        }
+    });
 }
