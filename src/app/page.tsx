@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from 'next/link';
 import { generateVideoTags } from "@/ai/flows/generate-video-tags";
 import { refineVideoTags } from "@/ai/flows/refine-video-tags-with-user-feedback";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/icons";
-import { Search, Upload, Film, FileWarning } from "lucide-react";
+import { Search, Upload, Film, FileWarning, Disc3 } from "lucide-react";
 import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
 import { RefineTagsModal } from "@/components/refine-tags-modal";
@@ -180,19 +181,25 @@ export default function Home() {
                 VeoVision Indexer
               </h1>
             </div>
-            <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2")}>
-              <Upload className="h-4 w-4" />
-              <span>{isProcessing ? "Processing..." : "Upload Videos"}</span>
-            </label>
-            <input
-              id="video-upload"
-              type="file"
-              multiple
-              accept="video/*"
-              className="sr-only"
-              onChange={handleFileChange}
-              disabled={isProcessing}
-            />
+            <div className="flex items-center gap-2">
+              <Link href="/drive" className={cn(buttonVariants({ size: "sm", variant: "outline" }))}>
+                <Disc3 className="h-4 w-4" />
+                <span>Sync with Drive</span>
+              </Link>
+              <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2")}>
+                <Upload className="h-4 w-4" />
+                <span>{isProcessing ? "Processing..." : "Upload Videos"}</span>
+              </label>
+              <input
+                id="video-upload"
+                type="file"
+                multiple
+                accept="video/*"
+                className="sr-only"
+                onChange={handleFileChange}
+                disabled={isProcessing}
+              />
+            </div>
           </div>
         </div>
       </header>
@@ -226,7 +233,7 @@ export default function Home() {
             <Film className="w-24 h-24 mb-4" />
             <h2 className="text-2xl font-semibold text-foreground">Welcome to VeoVision Indexer</h2>
             <p className="max-w-md mt-2">
-              Start by uploading your real estate videos. We'll analyze a frame and automatically generate searchable tags for you.
+              Start by uploading your real estate videos or connecting your Google Drive account. We'll analyze a frame and automatically generate searchable tags for you.
             </p>
           </div>
         )}
