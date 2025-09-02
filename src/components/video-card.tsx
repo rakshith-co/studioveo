@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -6,16 +7,10 @@ import {
   Card,
   CardContent,
   CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
-import { Play, Copy, Pencil, AlertCircle, Loader2, Save } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { renameGoogleFile } from "@/lib/google-drive";
-import { useState } from "react";
+import { Play, Pencil, AlertCircle, Loader2, UploadCloud } from "lucide-react";
 
 interface VideoCardProps {
   video: VideoFile;
@@ -24,28 +19,23 @@ interface VideoCardProps {
 }
 
 export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
-  const { toast } = useToast();
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleCopy = () => {
-    if (video.tags) {
-      navigator.clipboard.writeText(video.tags);
-      toast({
-        title: "Copied to Clipboard",
-        description: "New filename copied successfully.",
-      });
-    }
-  };
-
+  
   const renderStatus = () => {
     switch (video.status) {
       case "processing":
         return (
           <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white p-2 text-center">
             <Loader2 className="h-8 w-8 animate-spin mb-2" />
-            <p className="text-sm font-semibold">Processing...</p>
+            <p className="text-sm font-semibold">Analyzing...</p>
           </div>
         );
+      case "uploading":
+        return (
+            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-2 text-center">
+              <UploadCloud className="h-8 w-8 animate-bounce mb-2" />
+              <p className="text-sm font-semibold">Saving to Drive...</p>
+            </div>
+          );
       case "error":
         return (
           <div className="absolute inset-0 bg-destructive/80 flex flex-col items-center justify-center text-destructive-foreground p-2 text-center">
@@ -58,31 +48,10 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
         return null;
     }
   };
-  
-  const handleSaveToDrive = async () => {
-    if (!video.tags || !video.id) return;
-    setIsSaving(true);
-    try {
-        await renameGoogleFile(video.id, video.tags);
-        toast({
-            title: "File Renamed",
-            description: `Successfully renamed file in Google Drive to "${video.tags}".`
-        });
-    } catch (error) {
-        console.error("Failed to rename file in Google Drive", error);
-        toast({
-            variant: "destructive",
-            title: "Rename Failed",
-            description: "Could not rename file in Google Drive."
-        });
-    } finally {
-        setIsSaving(false);
-    }
-  }
 
   return (
     <Card className="flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
-      <CardHeader className="p-0">
+      <div className="p-0">
         <div className="relative aspect-video w-full">
           {video.thumbnail ? (
             <Image
@@ -97,7 +66,7 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
           )}
           {renderStatus()}
         </div>
-      </CardHeader>
+      </div>
       <CardContent className="p-4 flex-grow">
         <div className="text-sm text-muted-foreground break-words">
             {video.tags ? (
@@ -115,15 +84,6 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
             <Button variant="outline" size="icon" onClick={onPlay} aria-label="Play video">
               <Play className="h-4 w-4" />
             </Button>
-            {video.isDriveFile ? (
-               <Button variant="outline" size="icon" onClick={handleSaveToDrive} aria-label="Save to Drive" disabled={isSaving}>
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-               </Button>
-            ) : (
-               <Button variant="outline" size="icon" onClick={handleCopy} aria-label="Copy tags">
-                  <Copy className="h-4 w-4" />
-               </Button>
-            )}
             <Button variant="default" size="icon" onClick={onRefine} className="bg-accent hover:bg-accent/90" aria-label="Refine tags">
               <Pencil className="h-4 w-4 text-accent-foreground" />
             </Button>

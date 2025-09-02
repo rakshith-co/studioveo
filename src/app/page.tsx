@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -8,29 +9,28 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/icons";
-import { Search, Upload, Film, FileWarning, Disc3, RefreshCw } from "lucide-react";
+import { Search, Upload, Film, Disc3, CheckCircle } from "lucide-react";
 import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
 import { RefineTagsModal } from "@/components/refine-tags-modal";
 import { cn } from "@/lib/utils";
-import { getUnprocessedVideos, getGoogleFile, isGoogleDriveConnected } from "@/lib/google-drive";
+import { isGoogleDriveConnected, uploadFileToDrive, renameGoogleFile } from "@/lib/google-drive";
 
 export interface VideoFile {
   id: string;
+  driveId?: string;
   file: File;
   objectURL: string;
   thumbnail: string | null;
   tags: string | null;
-  status: "queued" | "processing" | "success" | "error";
+  status: "queued" | "processing" | "uploading" | "success" | "error";
   error?: string;
-  isDriveFile?: boolean;
 }
 
 export default function Home() {
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
   const [selectedVideoForPlayback, setSelectedVideoForPlayback] = useState<VideoFile | null>(null);
   const [selectedVideoForRefinement, setSelectedVideoForRefinement] = useState<VideoFile | null>(null);
@@ -44,6 +44,15 @@ export default function Home() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
+
+    if (!driveConnected) {
+      toast({
+        variant: "destructive",
+        title: "Google Drive Not Connected",
+        description: "Please connect your Google Drive account before uploading videos.",
+      });
+      return;
+    }
 
     const newVideos: VideoFile[] = Array.from(files)
       .filter(file => file.type.startsWith("video/"))
@@ -67,55 +76,6 @@ export default function Home() {
 
     setVideos(prev => [...prev, ...newVideos]);
   };
-  
-  const handleSyncDrive = useCallback(async () => {
-    setIsSyncing(true);
-    toast({ title: "Syncing with Google Drive...", description: "Looking for new videos in 'VeoVision-Uploads'." });
-
-    try {
-      const driveVideos = await getUnprocessedVideos();
-      if (driveVideos.length === 0) {
-        toast({ title: "No new videos found", description: "Your Google Drive folder is up to date." });
-        setIsSyncing(false);
-        return;
-      }
-      
-      toast({ title: `Found ${driveVideos.length} new videos`, description: "Starting to process them now." });
-      
-      for (const driveVideo of driveVideos) {
-          try {
-              const fileBlob = await getGoogleFile(driveVideo.id);
-              const file = new File([fileBlob], driveVideo.name, { type: fileBlob.type });
-
-              const newVideo: VideoFile = {
-                id: driveVideo.id,
-                file: file,
-                objectURL: URL.createObjectURL(file),
-                thumbnail: null,
-                tags: null,
-                status: "queued",
-                isDriveFile: true,
-              };
-              setVideos(prev => [newVideo, ...prev]);
-
-          } catch (fileError) {
-              console.error(`Failed to process Drive file ${driveVideo.name}:`, fileError);
-              toast({ variant: "destructive", title: `Error with ${driveVideo.name}`, description: "Could not download file from Google Drive." });
-          }
-      }
-
-    } catch (error) {
-      console.error("Failed to sync with Google Drive", error);
-      toast({
-        variant: "destructive",
-        title: "Sync Failed",
-        description: "Could not connect to Google Drive. Please check your connection and try again.",
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-
-  }, [toast]);
 
   const extractFrame = useCallback((file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -170,20 +130,41 @@ export default function Home() {
       setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "processing" } : v));
 
       try {
+        // Step 1: Extract frame and generate thumbnail
         const frameDataUri = await extractFrame(videoToProcess.file);
-        
         setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, thumbnail: frameDataUri } : v));
 
-        const result = await generateVideoTags({
+        // Step 2: Generate AI tags
+        const tagResult = await generateVideoTags({
           frameDataUri,
           filename: videoToProcess.file.name,
         });
+        const newTags = tagResult.tags;
+        setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, tags: newTags } : v));
+        toast({ title: "Tags Generated", description: `AI created tags for ${videoToProcess.file.name}.` });
 
-        setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "success", tags: result.tags } : v));
+        // Step 3: Upload to Google Drive with new tags
+        setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "uploading" } : v));
+        toast({ title: "Uploading to Drive...", description: `Uploading ${newTags}...` });
+        
+        const driveFile = await uploadFileToDrive(videoToProcess.file, newTags);
+        
+        setVideos(prev => prev.map(v => v.id === videoToProcess.id ? { ...v, status: "success", driveId: driveFile.id } : v));
         toast({
-          title: "Processing Complete",
-          description: `Tags generated for ${videoToProcess.file.name}.`,
+            title: "Upload Complete!",
+            description: `${newTags} is now in your Google Drive.`,
+            action: (
+                <a
+                  href={`https://drive.google.com/file/d/${driveFile.id}/view`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  View in Drive
+                </a>
+              ),
         });
+
       } catch (error) {
         console.error(error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during processing.";
@@ -205,15 +186,24 @@ export default function Home() {
   }, [videos, searchTerm]);
 
   const handleRefineTags = async (video: VideoFile, feedback: string) => {
+    if (!video.driveId || !video.tags) {
+        toast({ variant: "destructive", title: "Cannot Refine", description: "This video does not have a valid Drive ID to rename."});
+        return false;
+    }
     try {
       const result = await refineVideoTags({
-        originalTags: video.tags || "",
+        originalTags: video.tags,
         userFeedback: feedback,
       });
-      setVideos(prev => prev.map(v => v.id === video.id ? { ...v, tags: result.refinedTags } : v));
+      const refinedTags = result.refinedTags;
+      
+      // Rename the file in Google Drive
+      await renameGoogleFile(video.driveId, refinedTags);
+
+      setVideos(prev => prev.map(v => v.id === video.id ? { ...v, tags: refinedTags } : v));
       toast({
-        title: "Tags Refined",
-        description: `Successfully refined tags for ${video.file.name}.`,
+        title: "Tags Refined & Renamed",
+        description: `Successfully updated the file in Google Drive.`,
       });
       return true;
     } catch (error) {
@@ -221,13 +211,11 @@ export default function Home() {
       toast({
         variant: "destructive",
         title: "Refinement Failed",
-        description: "Could not refine tags.",
+        description: "Could not refine tags or rename the file in Google Drive.",
       });
       return false;
     }
   };
-
-  const isUploadingOrSyncing = isProcessing || isSyncing;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -241,17 +229,11 @@ export default function Home() {
               </h1>
             </div>
             <div className="flex items-center gap-2">
-               {driveConnected && (
-                <Button size="sm" variant="outline" onClick={handleSyncDrive} disabled={isUploadingOrSyncing}>
-                  <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>Sync Drive</span>
-                </Button>
-              )}
               <Link href="/drive" className={cn(buttonVariants({ size: "sm", variant: "outline" }), !driveConnected && "animate-pulse")}>
-                <Disc3 className="h-4 w-4" />
+                {driveConnected ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Disc3 className="h-4 w-4" />}
                 <span>{driveConnected ? 'Drive Connected' : 'Connect Drive'}</span>
               </Link>
-              <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2")}>
+              <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': !driveConnected || isProcessing })}>
                 <Upload className="h-4 w-4" />
                 <span>{isProcessing ? "Processing..." : "Upload Videos"}</span>
               </label>
@@ -262,7 +244,7 @@ export default function Home() {
                 accept="video/*"
                 className="sr-only"
                 onChange={handleFileChange}
-                disabled={isUploadingOrSyncing}
+                disabled={!driveConnected || isProcessing}
               />
             </div>
           </div>
@@ -298,7 +280,7 @@ export default function Home() {
             <Film className="w-24 h-24 mb-4" />
             <h2 className="text-2xl font-semibold text-foreground">Welcome to VeoVision Indexer</h2>
             <p className="max-w-md mt-2">
-              Start by uploading your real estate videos or connecting your Google Drive account. We'll analyze a frame and automatically generate searchable tags for you.
+              Connect your Google Drive, then upload videos. We'll analyze them, tag them, and save them directly to your Drive.
             </p>
           </div>
         )}
@@ -306,7 +288,7 @@ export default function Home() {
 
       {videos.length > 0 && (
           <footer className="text-center p-4 text-sm text-muted-foreground">
-              <p>Showing {filteredVideos.length} of {videos.length} videos. New filenames are suggestions. Please rename your files manually.</p>
+              <p>Showing {filteredVideos.length} of {videos.length} videos. All uploaded videos are automatically saved to your Google Drive.</p>
           </footer>
       )}
 

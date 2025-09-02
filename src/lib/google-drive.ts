@@ -4,6 +4,8 @@
 import { google } from "googleapis";
 import { cookies } from "next/headers";
 import { headers } from 'next/headers'
+import { Readable } from 'stream';
+
 
 const getRedirectUri = () => {
     const host = headers().get('host');
@@ -91,33 +93,42 @@ export async function createFolderIfNotExist(drive: any, folderName: string): Pr
 }
 
 
-export async function getUnprocessedVideos(): Promise<{id: string, name: string}[]> {
+export async function uploadFileToDrive(file: File, newName: string): Promise<{id: string, name: string}> {
   const client = await getAuthenticatedClient();
   if (!client) {
     throw new Error("Google Drive not connected.");
   }
-
   const drive = google.drive({ version: 'v3', auth: client });
   const folderId = await createFolderIfNotExist(drive, FOLDER_NAME);
 
-  const res = await drive.files.list({
-    q: `'${folderId}' in parents and mimeType contains 'video/' and trashed=false`,
-    fields: 'files(id, name)',
-    pageSize: 100, // Consider pagination for more files
+  const fileMetadata = {
+    name: newName,
+    parents: [folderId],
+  };
+
+  const buffer = await file.arrayBuffer();
+  const readable = new Readable();
+  readable.push(Buffer.from(buffer));
+  readable.push(null);
+
+  const media = {
+    mimeType: file.type,
+    body: readable,
+  };
+
+  const response = await drive.files.create({
+    requestBody: fileMetadata,
+    media: media,
+    fields: 'id, name',
   });
 
-  const files = res.data.files || [];
+  if (!response.data.id || !response.data.name) {
+    throw new Error('Failed to get file ID or name from Google Drive API response.');
+  }
 
-  // A file is considered "processed" if it contains an underscore, which is a
-  // core part of the naming convention this app uses.
-  const unprocessed = files.filter(f => {
-    if (!f.name) return false;
-    // If the filename does not include an underscore, it's considered unprocessed.
-    return !f.name.includes('_');
-  });
-  
-  return unprocessed.map(f => ({ id: f.id!, name: f.name! }));
+  return {id: response.data.id, name: response.data.name};
 }
+
 
 export async function getGoogleFile(fileId: string): Promise<Blob> {
     const client = await getAuthenticatedClient();
