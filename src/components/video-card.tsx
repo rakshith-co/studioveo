@@ -32,7 +32,7 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
           <>
             <UploadCloud className="h-6 w-6 animate-bounce mb-2" />
             <p className="text-xs font-semibold">Saving to Drive...</p>
-            <Progress value={video.progress} className="w-3/4 h-2 mt-2 bg-white/20 border border-white/30" />
+            <Progress value={video.progress} className="w-3/4 h-1 mt-2 bg-white/20 border border-white/30" />
           </>
         );
         break;

@@ -97,10 +97,10 @@ export async function createFolderIfNotExist(drive: any, folderName: string): Pr
 }
 
 
-export async function uploadFileToDrive(
-    file: File, 
+export async function uploadFileFromBuffer(
+    buffer: Buffer,
+    mimeType: string,
     newName: string,
-    onProgress: (progress: number) => void
 ): Promise<{id: string, name: string}> {
   const client = await getAuthenticatedClient();
   if (!client) {
@@ -114,29 +114,20 @@ export async function uploadFileToDrive(
     parents: [folderId],
   };
 
-  const buffer = await file.arrayBuffer();
   const readable = new Readable();
-  readable.push(Buffer.from(buffer));
+  readable.push(buffer);
   readable.push(null);
 
   const media = {
-    mimeType: file.type,
+    mimeType: mimeType,
     body: readable,
   };
 
-  const response = await drive.files.create(
-    {
-      resource: fileMetadata,
+  const response = await drive.files.create({
+      requestBody: fileMetadata,
       media: media,
       fields: 'id,name',
-    },
-    {
-      onUploadProgress: (evt) => {
-        const progress = Math.round((evt.bytesRead / file.size) * 100);
-        onProgress(progress);
-      },
-    }
-  );
+  });
 
   if (!response.data.id || !response.data.name) {
     throw new Error('Failed to get file ID or name from Google Drive API response.');
@@ -174,3 +165,5 @@ export async function renameGoogleFile(fileId: string, newName: string): Promise
         }
     });
 }
+
+    

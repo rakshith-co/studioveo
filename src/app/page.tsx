@@ -14,7 +14,7 @@ import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
 import { RefineTagsModal } from "@/components/refine-tags-modal";
 import { cn } from "@/lib/utils";
-import { isGoogleDriveConnected, uploadFileToDrive, getGoogleAuthUrl, renameGoogleFile } from "@/lib/google-drive";
+import { isGoogleDriveConnected, getGoogleAuthUrl, renameGoogleFile } from "@/lib/google-drive";
 import { Sidebar } from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -127,6 +127,38 @@ export default function HomePage() {
       prev.map(v => (v.id === id ? { ...v, progress } : v))
     );
   };
+
+  const uploadFileWithProgress = (file: File, newName: string, videoId: string): Promise<{id: string}> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          handleSetVideoProgress(videoId, percentComplete);
+        }
+      });
+      
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText));
+        } else {
+          reject(new Error(`${xhr.status}: ${xhr.statusText}`));
+        }
+      });
+      
+      xhr.addEventListener("error", () => {
+        reject(new Error("Upload failed"));
+      });
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("newName", newName);
+
+      xhr.open("POST", "/api/upload-to-drive", true);
+      xhr.send(formData);
+    });
+  };
   
   useEffect(() => {
     const processQueue = async () => {
@@ -160,13 +192,9 @@ export default function HomePage() {
           
           setVideos(prev => prev.map(v => v.id === video.id ? { ...v, status: "uploading" } : v));
           
-          const driveFile = await uploadFileToDrive(
-            video.file,
-            newTags,
-            (progress) => handleSetVideoProgress(video.id, progress)
-          );
+          const driveFile = await uploadFileWithProgress(video.file, newTags, video.id);
           
-          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, status: "success", driveId: driveFile.id } : v));
+          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, status: "success", driveId: driveFile.id, progress: 100 } : v));
           
           toast({
               title: "Upload Complete!",
