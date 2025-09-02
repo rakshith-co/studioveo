@@ -107,13 +107,13 @@ export async function getUnprocessedVideos(): Promise<{id: string, name: string}
   });
 
   const files = res.data.files || [];
-  // A more specific regex to match the app's naming convention.
-  // Format: YYYYMMDD_PrimarySubject_KeyAttributes_..._shortHash.mp4
-  const processedRegex = /^\d{8}_.*_.*_.*_.*\.[a-zA-Z0-9]+$/;
+
+  // A file is considered "processed" if it contains an underscore, which is a
+  // core part of the naming convention this app uses.
   const unprocessed = files.filter(f => {
     if (!f.name) return false;
-    // Check if the filename matches the complex pattern. If not, it's considered unprocessed.
-    return !processedRegex.test(f.name);
+    // If the filename does not include an underscore, it's considered unprocessed.
+    return !f.name.includes('_');
   });
   
   return unprocessed.map(f => ({ id: f.id!, name: f.name! }));
