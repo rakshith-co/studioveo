@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFileFromBuffer } from "@/lib/google-drive";
 
+export const runtime = 'nodejs';
+
 export const config = {
   api: {
     bodyParser: {
