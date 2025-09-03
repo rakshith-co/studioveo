@@ -2,6 +2,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadFileFromBuffer } from "@/lib/google-drive";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "100mb",
+    },
+  },
+};
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
