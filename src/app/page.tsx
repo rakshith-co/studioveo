@@ -143,12 +143,17 @@ export default function HomePage() {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(JSON.parse(xhr.responseText));
         } else {
-          reject(new Error(`${xhr.status}: ${xhr.statusText}`));
+          try {
+            const errorResponse = JSON.parse(xhr.responseText);
+            reject(new Error(errorResponse.details || `${xhr.status}: ${xhr.statusText}`));
+          } catch {
+            reject(new Error(`${xhr.status}: ${xhr.statusText}`));
+          }
         }
       });
       
       xhr.addEventListener("error", () => {
-        reject(new Error("Upload failed"));
+        reject(new Error("Upload failed due to a network error."));
       });
 
       const formData = new FormData();
@@ -395,5 +400,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    

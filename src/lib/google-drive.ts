@@ -44,23 +44,30 @@ export async function getAuthenticatedClient() {
     const tokens = JSON.parse(storedTokens);
     oauth2Client.setCredentials(tokens);
 
-    // It's good practice to see if the token is expired and refresh if necessary
-    // getAccessToken will handle this automatically if a refresh token is present
-    const refreshedTokenInfo = await oauth2Client.getAccessToken();
-    if (refreshedTokenInfo.token && refreshedTokenInfo.token !== tokens.access_token) {
-       const newTokens = { ...tokens, access_token: refreshedTokenInfo.token };
-       cookies().set("google-tokens", JSON.stringify(newTokens), {
-         httpOnly: true,
-         maxAge: 60 * 60 * 24 * 365,
-         secure: process.env.NODE_ENV === 'production',
-         sameSite: 'lax',
-       });
+    // If the access token is expired, `getAccessToken` will refresh it automatically
+    // and return the new token information.
+    const { token } = await oauth2Client.getAccessToken();
+
+    // If a new token was fetched, update the cookies.
+    if (token && token !== tokens.access_token) {
+        const newTokens = { ...tokens, access_token: token };
+        // We need to clone the client and set the new credentials to ensure
+        // the current request uses the refreshed token.
+        const newClient = getOAuth2Client();
+        newClient.setCredentials(newTokens);
+        
+        cookies().set("google-tokens", JSON.stringify(newTokens), {
+            httpOnly: true,
+            maxAge: 60 * 60 * 24 * 365,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+        });
+        return newClient;
     }
 
     return oauth2Client;
   } catch (error) {
     console.error("Failed to get authenticated client", error);
-    // If tokens are invalid, clear them
     cookies().delete("google-tokens");
     return null;
   }
@@ -165,5 +172,3 @@ export async function renameGoogleFile(fileId: string, newName: string): Promise
         }
     });
 }
-
-    
