@@ -180,7 +180,6 @@ export default function HomePage() {
       view.setMimeTypes("video/*");
 
       const uploadView = new google.picker.DocsUploadView();
-      uploadView.setParent(FOLDER_NAME);
       uploadView.setMimeTypes("video/*");
 
       const picker = new google.picker.PickerBuilder()
@@ -188,7 +187,6 @@ export default function HomePage() {
         .setOAuthToken(accessToken)
         .addView(view)
         .addView(uploadView)
-        .setTitle(`Select a video or upload to "${FOLDER_NAME}"`)
         .setDeveloperKey(GOOGLE_API_KEY)
         .setCallback((data: google.picker.ResponseObject) => {
           if (data.action === google.picker.Action.PICKED) {
@@ -204,23 +202,12 @@ export default function HomePage() {
     if (pickerApiLoaded.current) {
         showPicker();
     } else {
-        const script = document.createElement('script');
-        script.src = 'https://apis.google.com/js/api.js';
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-            gapi.load('picker', () => {
-                pickerApiLoaded.current = true;
-                showPicker();
-            });
-        };
-        script.onerror = () => {
-            toast({ variant: 'destructive', title: "Error", description: "Could not load Google Picker." });
-            setIsPickerLoading(false);
-        }
-        document.head.appendChild(script);
+        gapi.load('picker', () => {
+            pickerApiLoaded.current = true;
+            showPicker();
+        });
     }
-  }, [processPickedFile, toast]);
+  }, [processPickedFile]);
 
   const handlePick = () => {
     setIsPickerLoading(true);
@@ -232,7 +219,23 @@ export default function HomePage() {
     }
     
     const accessToken = session.accessToken;
-    createPicker(accessToken);
+
+    if (pickerApiLoaded.current) {
+      createPicker(accessToken);
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://apis.google.com/js/api.js';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+          createPicker(accessToken);
+      };
+      script.onerror = () => {
+          toast({ variant: 'destructive', title: "Error", description: "Could not load Google Picker." });
+          setIsPickerLoading(false);
+      }
+      document.head.appendChild(script);
+    }
   };
 
 
@@ -442,3 +445,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
