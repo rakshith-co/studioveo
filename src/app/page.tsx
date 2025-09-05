@@ -7,7 +7,7 @@ import { generateVideoTags } from "@/ai/flows/generate-video-tags";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Upload, Clapperboard, Copy, Save } from "lucide-react";
+import { Search, Upload, Clapperboard, Copy, Save, Loader2 } from "lucide-react";
 import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
 import { cn } from "@/lib/utils";
@@ -431,5 +431,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
