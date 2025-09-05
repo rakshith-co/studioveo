@@ -5,16 +5,15 @@ import Image from "next/image";
 import { type VideoFile } from "@/app/page";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Play, Pencil, AlertCircle, Loader2, UploadCloud } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { Play, Copy, AlertCircle, Loader2 } from "lucide-react";
 
 interface VideoCardProps {
   video: VideoFile;
   onPlay: () => void;
-  onRefine: () => void;
+  onCopy: () => void;
 }
 
-export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
+export function VideoCard({ video, onPlay, onCopy }: VideoCardProps) {
   
   const renderStatusOverlay = () => {
     let statusContent = null;
@@ -24,15 +23,6 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
           <>
             <Loader2 className="h-6 w-6 animate-spin mb-2" />
             <p className="text-xs font-semibold">Analyzing...</p>
-          </>
-        );
-        break;
-      case "uploading":
-        statusContent = (
-          <>
-            <UploadCloud className="h-6 w-6 animate-bounce mb-2" />
-            <p className="text-xs font-semibold">Saving to Drive...</p>
-            <Progress value={video.progress} className="w-3/4 h-1 mt-2 bg-white/20 border border-white/30" />
           </>
         );
         break;
@@ -80,13 +70,11 @@ export function VideoCard({ video, onPlay, onRefine }: VideoCardProps) {
                 <Button variant="default" size="icon" className="rounded-full h-12 w-12" onClick={onPlay} aria-label="Play video">
                     <Play className="h-5 w-5" />
                 </Button>
-                <Button variant="secondary" size="icon" className="rounded-full h-12 w-12" onClick={onRefine} aria-label="Refine tags">
-                    <Pencil className="h-5 w-5" />
+                <Button variant="secondary" size="icon" className="rounded-full h-12 w-12" onClick={onCopy} aria-label="Copy filename">
+                    <Copy className="h-5 w-5" />
                 </Button>
             </div>
         )}
     </div>
   );
 }
-
-    

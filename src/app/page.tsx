@@ -2,31 +2,25 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import Link from 'next/link';
 import Image from "next/image";
 import { generateVideoTags } from "@/ai/flows/generate-video-tags";
-import { refineVideoTags } from "@/ai/flows/refine-video-tags-with-user-feedback";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Upload, Disc3, CheckCircle, Play, Pencil, Clapperboard } from "lucide-react";
+import { Search, Upload, Clapperboard, Copy } from "lucide-react";
 import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
-import { RefineTagsModal } from "@/components/refine-tags-modal";
 import { cn } from "@/lib/utils";
-import { isGoogleDriveConnected, getGoogleAuthUrl, renameGoogleFile } from "@/lib/google-drive";
 import { Sidebar } from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export interface VideoFile {
   id: string;
-  driveId?: string;
   file: File;
   objectURL: string;
   thumbnail: string | null;
   tags: string | null;
-  status: "queued" | "processing" | "uploading" | "success" | "error";
-  progress: number;
+  status: "queued" | "processing" | "success" | "error";
   error?: string;
 }
 
@@ -34,28 +28,13 @@ export default function HomePage() {
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [driveConnected, setDriveConnected] = useState<boolean | null>(null);
   const [selectedVideoForPlayback, setSelectedVideoForPlayback] = useState<VideoFile | null>(null);
-  const [selectedVideoForRefinement, setSelectedVideoForRefinement] = useState<VideoFile | null>(null);
 
   const { toast } = useToast();
-
-  useEffect(() => {
-    isGoogleDriveConnected().then(setDriveConnected);
-  }, []);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
-
-    if (driveConnected === false) {
-        toast({
-            variant: "destructive",
-            title: "Google Drive Not Connected",
-            description: "Please connect your Google Drive account before uploading videos.",
-        });
-        return;
-    }
 
     const newVideos: VideoFile[] = Array.from(files)
       .filter(file => file.type.startsWith("video/"))
@@ -66,7 +45,6 @@ export default function HomePage() {
         thumbnail: null,
         tags: null,
         status: "queued",
-        progress: 0,
       }));
 
     const nonVideoFiles = Array.from(files).filter(file => !file.type.startsWith("video/"));
@@ -122,49 +100,6 @@ export default function HomePage() {
     });
   }, []);
 
-  const handleSetVideoProgress = (id: string, progress: number) => {
-    setVideos(prev =>
-      prev.map(v => (v.id === id ? { ...v, progress } : v))
-    );
-  };
-
-  const uploadFileWithProgress = (file: File, newName: string, videoId: string): Promise<{id: string}> => {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      
-      xhr.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = (event.loaded / event.total) * 100;
-          handleSetVideoProgress(videoId, percentComplete);
-        }
-      });
-      
-      xhr.addEventListener("load", () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
-        } else {
-          try {
-            const errorResponse = JSON.parse(xhr.responseText);
-            reject(new Error(errorResponse.details || `${xhr.status}: ${xhr.statusText}`));
-          } catch {
-            reject(new Error(`${xhr.status}: ${xhr.statusText}`));
-          }
-        }
-      });
-      
-      xhr.addEventListener("error", () => {
-        reject(new Error("Upload failed due to a network error."));
-      });
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("newName", newName);
-
-      xhr.open("POST", "/api/upload-to-drive", true);
-      xhr.send(formData);
-    });
-  };
-  
   useEffect(() => {
     const processQueue = async () => {
       const videosToProcess = videos.filter(v => v.status === "queued");
@@ -193,17 +128,12 @@ export default function HomePage() {
             filename: video.file.name,
           });
           const newTags = tagResult.tags;
-          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, tags: newTags } : v));
           
-          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, status: "uploading" } : v));
-          
-          const driveFile = await uploadFileWithProgress(video.file, newTags, video.id);
-          
-          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, status: "success", driveId: driveFile.id, progress: 100 } : v));
+          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, tags: newTags, status: "success" } : v));
           
           toast({
-              title: "Upload Complete!",
-              description: `${newTags} is now in your Google Drive.`,
+              title: "Analysis Complete!",
+              description: `Generated filename for ${video.file.name}.`,
           });
 
         } catch (error) {
@@ -229,52 +159,15 @@ export default function HomePage() {
     return videos.filter(video => video.tags?.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [videos, searchTerm]);
 
-  const handleRefineTags = async (video: VideoFile, feedback: string) => {
-    if (!video.driveId || !video.tags) {
-        toast({ variant: "destructive", title: "Cannot Refine", description: "This video does not have a valid Drive ID to rename."});
-        return false;
-    }
-    try {
-      const result = await refineVideoTags({
-        originalTags: video.tags,
-        userFeedback: feedback,
-      });
-      const refinedTags = result.refinedTags;
-      
-      await renameGoogleFile(video.driveId, refinedTags);
-
-      setVideos(prev => prev.map(v => v.id === video.id ? { ...v, tags: refinedTags } : v));
-      toast({
-        title: "Tags Refined & Renamed",
-        description: `Successfully updated the file in Google Drive.`,
-      });
-      return true;
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Refinement Failed",
-        description: "Could not refine tags or rename the file in Google Drive.",
-      });
-      return false;
-    }
+  const handleCopyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to Clipboard!",
+      description: "You can now rename your file.",
+    });
   };
 
   const heroVideo = useMemo(() => videos.find(v => v.status === 'success') || null, [videos]);
-
-  const handleConnectDrive = async () => {
-    try {
-        const url = await getGoogleAuthUrl();
-        window.location.href = url;
-    } catch (error) {
-        toast({
-            variant: "destructive",
-            title: "Failed to connect",
-            description: "Could not get Google authentication URL."
-        });
-    }
-  };
-
 
   return (
     <div className="flex h-screen w-full">
@@ -294,7 +187,7 @@ export default function HomePage() {
                     />
                 </div>
                 <div className="flex items-center gap-4">
-                    <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': driveConnected === false || isProcessing })}>
+                    <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': isProcessing })}>
                         <Upload className="h-4 w-4" />
                         <span>{isProcessing ? "Processing..." : "Upload"}</span>
                     </label>
@@ -305,11 +198,8 @@ export default function HomePage() {
                         accept="video/*"
                         className="sr-only"
                         onChange={handleFileChange}
-                        disabled={driveConnected === false || isProcessing}
+                        disabled={isProcessing}
                     />
-                     <Link href="/drive" className={cn(buttonVariants({ size: "icon", variant: "ghost" }))}>
-                        {driveConnected ? <CheckCircle className="h-5 w-5 text-green-500" /> : <Disc3 className="h-5 w-5" />}
-                    </Link>
                 </div>
             </div>
           </div>
@@ -326,10 +216,10 @@ export default function HomePage() {
                             <p className="text-lg text-muted-foreground">{heroVideo.tags}</p>
                             <div className="mt-4 flex gap-4">
                                 <Button onClick={() => setSelectedVideoForPlayback(heroVideo)} size="lg">
-                                    <Play className="mr-2"/> Play
+                                    Play
                                 </Button>
-                                <Button onClick={() => setSelectedVideoForRefinement(heroVideo)} size="lg" variant="secondary">
-                                    <Pencil className="mr-2"/> Refine
+                                <Button onClick={() => handleCopyToClipboard(heroVideo.tags!)} size="lg" variant="secondary">
+                                    <Copy className="mr-2"/> Copy Filename
                                 </Button>
                             </div>
                         </div>
@@ -349,7 +239,7 @@ export default function HomePage() {
                         key={video.id}
                         video={video}
                         onPlay={() => setSelectedVideoForPlayback(video)}
-                        onRefine={() => setSelectedVideoForRefinement(video)}
+                        onCopy={() => handleCopyToClipboard(video.tags!)}
                         />
                     ))}
                     </div>
@@ -359,16 +249,12 @@ export default function HomePage() {
                 <Clapperboard className="w-24 h-24 mb-4 text-primary/50" />
                 <h2 className="text-2xl font-semibold text-foreground">Welcome to Revspot Vision</h2>
                 <p className="max-w-md mt-2">
-                Connect your Google Drive, then upload videos. We'll analyze them, tag them, and save them directly to your Drive.
+                 Upload your real estate videos, and we'll analyze them to generate the perfect, SEO-friendly filename.
                 </p>
-                { driveConnected === false ? (
-                    <Button onClick={handleConnectDrive} size="lg" className="mt-6">Connect Google Drive</Button>
-                ) : (
                  <label htmlFor="video-upload-main" className={cn(buttonVariants({ size: "lg", className: "mt-6" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': isProcessing })}>
                     <Upload className="h-4 w-4" />
                     <span>{isProcessing ? "Processing..." : "Upload Your First Video"}</span>
                 </label>
-                )}
                 <input
                     id="video-upload-main"
                     type="file"
@@ -376,7 +262,7 @@ export default function HomePage() {
                     accept="video/*"
                     className="sr-only"
                     onChange={handleFileChange}
-                    disabled={driveConnected === false || isProcessing}
+                    disabled={isProcessing}
                 />
             </div>
             )}
@@ -387,14 +273,6 @@ export default function HomePage() {
         <VideoPlayerModal
           video={selectedVideoForPlayback}
           onOpenChange={(open) => !open && setSelectedVideoForPlayback(null)}
-        />
-      )}
-      
-      {selectedVideoForRefinement && (
-        <RefineTagsModal
-          video={selectedVideoForRefinement}
-          onOpenChange={(open) => !open && setSelectedVideoForRefinement(null)}
-          onRefine={handleRefineTags}
         />
       )}
     </div>
