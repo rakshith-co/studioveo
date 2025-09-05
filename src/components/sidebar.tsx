@@ -1,13 +1,13 @@
+
 "use client";
 import Link from "next/link";
-import { Home, Video, Settings } from "lucide-react";
+import { Home, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./icons";
 
 const navItems = [
     { name: "Home", href: "/", icon: Home },
     { name: "My Library", href: "/", icon: Video },
-    { name: "Settings", href: "/drive", icon: Settings },
 ]
 
 export function Sidebar() {

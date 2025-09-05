@@ -175,30 +175,52 @@ export default function HomePage() {
   }, [session, extractFrame, toast]);
 
   const createPicker = useCallback((accessToken: string) => {
-    const view = new google.picker.View(google.picker.ViewId.DOCS);
-    view.setMimeTypes("video/*");
+    const showPicker = () => {
+      const view = new google.picker.View(google.picker.ViewId.DOCS);
+      view.setMimeTypes("video/*");
 
-    const uploadView = new google.picker.DocsUploadView();
-    uploadView.setParent(FOLDER_NAME);
-    uploadView.setMimeTypes("video/*");
+      const uploadView = new google.picker.DocsUploadView();
+      uploadView.setParent(FOLDER_NAME);
+      uploadView.setMimeTypes("video/*");
 
-    const picker = new google.picker.PickerBuilder()
-      .setAppId(process.env.NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER!)
-      .setOAuthToken(accessToken)
-      .addView(view)
-      .addView(uploadView)
-      .setTitle(`Select a video or upload to "${FOLDER_NAME}"`)
-      .setDeveloperKey(GOOGLE_API_KEY)
-      .setCallback((data: google.picker.ResponseObject) => {
-        if (data.action === google.picker.Action.PICKED) {
-          const doc = data.docs[0];
-          processPickedFile(doc);
+      const picker = new google.picker.PickerBuilder()
+        .setAppId(process.env.NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER!)
+        .setOAuthToken(accessToken)
+        .addView(view)
+        .addView(uploadView)
+        .setTitle(`Select a video or upload to "${FOLDER_NAME}"`)
+        .setDeveloperKey(GOOGLE_API_KEY)
+        .setCallback((data: google.picker.ResponseObject) => {
+          if (data.action === google.picker.Action.PICKED) {
+            const doc = data.docs[0];
+            processPickedFile(doc);
+          }
+        })
+        .build();
+      picker.setVisible(true);
+      setIsPickerLoading(false);
+    }
+
+    if (pickerApiLoaded.current) {
+        showPicker();
+    } else {
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+            gapi.load('picker', () => {
+                pickerApiLoaded.current = true;
+                showPicker();
+            });
+        };
+        script.onerror = () => {
+            toast({ variant: 'destructive', title: "Error", description: "Could not load Google Picker." });
+            setIsPickerLoading(false);
         }
-      })
-      .build();
-    picker.setVisible(true);
-    setIsPickerLoading(false);
-  }, [processPickedFile]);
+        document.head.appendChild(script);
+    }
+  }, [processPickedFile, toast]);
 
   const handlePick = () => {
     setIsPickerLoading(true);
@@ -210,26 +232,7 @@ export default function HomePage() {
     }
     
     const accessToken = session.accessToken;
-
-    if (pickerApiLoaded.current) {
-      createPicker(accessToken);
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-        gapi.load('picker', () => {
-          pickerApiLoaded.current = true;
-          createPicker(accessToken);
-        });
-      };
-      script.onerror = () => {
-        toast({ variant: 'destructive', title: "Error", description: "Could not load Google Picker."});
-        setIsPickerLoading(false);
-      }
-      document.head.appendChild(script);
-    }
+    createPicker(accessToken);
   };
 
 
@@ -354,7 +357,7 @@ export default function HomePage() {
                         placeholder="Search by tags..."
                         className="pl-10 w-full bg-black/20 focus-visible:ring-primary focus-visible:ring-offset-0"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.targe.value)}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
                 <div className="flex items-center gap-4">
@@ -439,5 +442,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
