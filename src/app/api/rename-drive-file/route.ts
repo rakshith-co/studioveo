@@ -1,5 +1,5 @@
 
-import { getAuthenticatedClient } from "@/lib/google-drive";
+import { getAuthenticatedClient } from "@/lib/google-drive-server";
 import { google } from "googleapis";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -33,5 +33,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 }
-
-    
