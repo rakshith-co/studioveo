@@ -45,11 +45,6 @@ export function VideoCard({ video, onPlay, onCopy, onSaveToDrive }: VideoCardPro
     )
   };
 
-  const getFileName = () => {
-      if (video.source === 'drive') return video.tags ? 'Ready to save' : 'Processing...';
-      return video.file?.name ?? 'Processing...';
-  }
-
   return (
     <div className="group relative rounded-xl overflow-hidden transition-all duration-300 ease-in-out hover:shadow-primary/20 hover:shadow-lg hover:-translate-y-1">
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />

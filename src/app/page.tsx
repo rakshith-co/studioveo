@@ -201,12 +201,15 @@ export default function HomePage() {
   }, [processPickedFile]);
 
   const handlePick = () => {
-    if (sessionStatus !== 'authenticated' || !session) {
+    setIsPickerLoading(true);
+
+    if (sessionStatus !== 'authenticated' || !session?.accessToken) {
       toast({ variant: 'destructive', title: "Authentication Required", description: "Please connect your Google Drive first." });
+      setIsPickerLoading(false);
       return;
     }
-    setIsPickerLoading(true);
-    const accessToken = (session as any).accessToken;
+    
+    const accessToken = session.accessToken;
 
     if (pickerApiLoaded.current) {
       createPicker(accessToken);
@@ -221,6 +224,10 @@ export default function HomePage() {
           createPicker(accessToken);
         });
       };
+      script.onerror = () => {
+        toast({ variant: 'destructive', title: "Error", description: "Could not load Google Picker."});
+        setIsPickerLoading(false);
+      }
       document.head.appendChild(script);
     }
   };
@@ -347,7 +354,7 @@ export default function HomePage() {
                         placeholder="Search by tags..."
                         className="pl-10 w-full bg-black/20 focus-visible:ring-primary focus-visible:ring-offset-0"
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => setSearchTerm(e.targe.value)}
                     />
                 </div>
                 <div className="flex items-center gap-4">
@@ -432,3 +439,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
