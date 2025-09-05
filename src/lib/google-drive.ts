@@ -1,6 +1,4 @@
 
-'use server';
-
 import { google } from 'googleapis';
 
 const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI!;

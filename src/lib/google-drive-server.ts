@@ -21,12 +21,17 @@ export async function getAuthenticatedClient(req: NextRequest): Promise<any> {
     const oauth2Client = getOAuth2Client();
     oauth2Client.setCredentials(tokens);
 
+    // Check if the token is expiring within the next 5 minutes
     if (oauth2Client.isTokenExpiring()) {
       const { credentials } = await oauth2Client.refreshAccessToken();
       oauth2Client.setCredentials(credentials);
       
+      // The refreshAccessToken method might not return a refresh_token,
+      // so we merge the new credentials with the old ones.
+      const newTokens = { ...tokens, ...credentials };
+
       const oneMonth = 30 * 24 * 60 * 60 * 1000;
-      cookieStore.set('google-tokens', JSON.stringify(credentials), {
+      cookieStore.set('google-tokens', JSON.stringify(newTokens), {
         httpOnly: true,
         path: '/',
         secure: process.env.NODE_ENV === 'production',
@@ -37,6 +42,7 @@ export async function getAuthenticatedClient(req: NextRequest): Promise<any> {
     return oauth2Client;
   } catch (error) {
     console.error("Error getting authenticated client:", error);
+    // If refresh fails, the token is likely invalid, so we clear it.
     cookieStore.delete('google-tokens');
     return null;
   }
