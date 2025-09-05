@@ -4,10 +4,9 @@ import { google } from 'googleapis';
 const REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI!;
 
 export const DRIVE_SCOPES = [
-  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/userinfo.profile',
   'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/drive.readonly',
 ];
 
 export function getOAuth2Client() {
