@@ -184,7 +184,6 @@ export default function HomePage() {
 
     const picker = new google.picker.PickerBuilder()
       .setAppId(process.env.NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER!)
-      .setApiKey(GOOGLE_API_KEY)
       .setOAuthToken(accessToken)
       .addView(view)
       .addView(uploadView)
@@ -213,7 +212,9 @@ export default function HomePage() {
       createPicker(accessToken);
     } else {
       const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
       script.onload = () => {
         gapi.load('picker', () => {
           pickerApiLoaded.current = true;
