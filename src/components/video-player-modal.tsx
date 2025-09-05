@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -15,13 +16,15 @@ interface VideoPlayerModalProps {
 }
 
 export function VideoPlayerModal({ video, onOpenChange }: VideoPlayerModalProps) {
+  const originalFilename = video.source === 'local' ? video.file?.name : `Google Drive file ID: ${video.driveId}`;
+  
   return (
     <Dialog open={!!video} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl glassmorphic border-primary/20">
         <DialogHeader>
-          <DialogTitle className="truncate">{video.tags || video.file.name}</DialogTitle>
+          <DialogTitle className="truncate">{video.tags || "Video Preview"}</DialogTitle>
           <DialogDescription>
-            Original filename: {video.file.name}
+            Original: {originalFilename}
           </DialogDescription>
         </DialogHeader>
         <div className="aspect-video w-full rounded-lg overflow-hidden mt-4 bg-black">
@@ -31,3 +34,5 @@ export function VideoPlayerModal({ video, onOpenChange }: VideoPlayerModalProps)
     </Dialog>
   );
 }
+
+    

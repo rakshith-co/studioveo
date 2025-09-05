@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -29,6 +30,13 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '100mb',
     },
   },
+   env: {
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER: process.env.GOOGLE_PROJECT_NUMBER,
+    NEXT_PUBLIC_GOOGLE_API_KEY: process.env.GEMINI_API_KEY,
+  },
 };
 
 export default nextConfig;
+
+    

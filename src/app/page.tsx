@@ -1,36 +1,49 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Image from "next/image";
 import { generateVideoTags } from "@/ai/flows/generate-video-tags";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Upload, Clapperboard, Copy } from "lucide-react";
+import { Search, Upload, Clapperboard, Copy, Save } from "lucide-react";
 import { VideoCard } from "@/components/video-card";
 import { VideoPlayerModal } from "@/components/video-player-modal";
 import { cn } from "@/lib/utils";
 import { Sidebar } from "@/components/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { signIn, signOut, useSession } from "@/lib/google-auth";
 
 export interface VideoFile {
-  id: string;
-  file: File;
+  id: string; // Will be fileId from Drive or a local identifier
+  file?: File; // For local files
   objectURL: string;
   thumbnail: string | null;
   tags: string | null;
   status: "queued" | "processing" | "success" | "error";
   error?: string;
+  source: 'drive' | 'local';
+  driveId?: string; // Google Drive file ID
 }
+
+// Public Google API Key
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY!;
+// Client ID from environment variables
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!;
+const FOLDER_NAME = "RevspotVision-Uploads";
+
 
 export default function HomePage() {
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedVideoForPlayback, setSelectedVideoForPlayback] = useState<VideoFile | null>(null);
-
+  const { session, status: sessionStatus } = useSession();
   const { toast } = useToast();
+
+  const pickerApiLoaded = useRef(false);
+  const [isPickerLoading, setIsPickerLoading] = useState(false);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -45,7 +58,17 @@ export default function HomePage() {
         thumbnail: null,
         tags: null,
         status: "queued",
+        source: 'local'
       }));
+
+    if (newVideos.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Video Files Selected",
+        description: "Please choose one or more video files.",
+      });
+      return;
+    }
 
     const nonVideoFiles = Array.from(files).filter(file => !file.type.startsWith("video/"));
     if (nonVideoFiles.length > 0) {
@@ -55,25 +78,18 @@ export default function HomePage() {
         description: `Only video files are accepted. ${nonVideoFiles.length} file(s) were ignored.`,
       });
     }
-
     setVideos(prev => [...newVideos, ...prev]);
   };
 
-  const extractFrame = useCallback((file: File): Promise<string> => {
+  const extractFrame = useCallback((videoSource: File | string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement("video");
       video.muted = true;
       video.crossOrigin = "anonymous";
       video.preload = "metadata";
 
-      const revokeUrl = () => URL.revokeObjectURL(video.src);
-
       video.onloadedmetadata = () => {
-        if (video.duration === Infinity || isNaN(video.duration)) {
-          video.currentTime = 1;
-        } else {
-          video.currentTime = video.duration / 3;
-        }
+        video.currentTime = Math.min(1, video.duration / 3); 
       };
 
       video.onseeked = () => {
@@ -82,27 +98,136 @@ export default function HomePage() {
         canvas.height = video.videoHeight;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          revokeUrl();
+          URL.revokeObjectURL(video.src);
           return reject(new Error("Could not get canvas context"));
         }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL("image/jpeg");
-        revokeUrl();
+        URL.revokeObjectURL(video.src);
         resolve(dataUrl);
       };
 
       video.onerror = (e) => {
-        revokeUrl();
+        URL.revokeObjectURL(video.src);
         reject(new Error("Failed to load or process video file. It might be corrupt or an unsupported format."));
       };
-
-      video.src = URL.createObjectURL(file);
+      
+      if (typeof videoSource === 'string') {
+        video.src = videoSource;
+      } else {
+        video.src = URL.createObjectURL(videoSource);
+      }
     });
   }, []);
+  
+  const processPickedFile = useCallback(async (doc: google.picker.Document) => {
+    setIsProcessing(true);
+    setVideos(prev => [{
+      id: doc.id,
+      driveId: doc.id,
+      objectURL: '',
+      thumbnail: null,
+      tags: null,
+      status: 'processing',
+      source: 'drive'
+    }, ...prev]);
+
+    try {
+      const accessToken = (session as any)?.accessToken;
+      if (!accessToken) throw new Error("Not authenticated");
+
+      const response = await fetch(`https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to download file from Google Drive.');
+
+      const videoBlob = await response.blob();
+      const objectURL = URL.createObjectURL(videoBlob);
+      
+      setVideos(prev => prev.map(v => v.id === doc.id ? { ...v, objectURL } : v));
+
+      const frameDataUri = await extractFrame(objectURL);
+      setVideos(prev => prev.map(v => v.id === doc.id ? { ...v, thumbnail: frameDataUri } : v));
+
+      const tagResult = await generateVideoTags({
+        frameDataUri,
+        filename: doc.name,
+      });
+
+      setVideos(prev => prev.map(v => v.id === doc.id ? { ...v, tags: tagResult.tags, status: 'success' } : v));
+      toast({
+        title: "Analysis Complete!",
+        description: `Generated filename for ${doc.name}.`,
+      });
+    } catch (error) {
+      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      setVideos(prev => prev.map(v => v.id === doc.id ? { ...v, status: 'error', error: errorMessage } : v));
+      toast({
+        variant: "destructive",
+        title: "Processing Failed",
+        description: `Could not process ${doc.name}. ${errorMessage}`,
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [session, extractFrame, toast]);
+
+  const createPicker = useCallback((accessToken: string) => {
+    const view = new google.picker.View(google.picker.ViewId.DOCS);
+    view.setMimeTypes("video/*");
+
+    const uploadView = new google.picker.DocsUploadView();
+    uploadView.setParent(FOLDER_NAME);
+    uploadView.setMimeTypes("video/*");
+
+    const picker = new google.picker.PickerBuilder()
+      .setAppId(process.env.NEXT_PUBLIC_GOOGLE_PROJECT_NUMBER!)
+      .setApiKey(GOOGLE_API_KEY)
+      .setOAuthToken(accessToken)
+      .addView(view)
+      .addView(uploadView)
+      .setTitle(`Select a video or upload to "${FOLDER_NAME}"`)
+      .setDeveloperKey(GOOGLE_API_KEY)
+      .setCallback((data: google.picker.ResponseObject) => {
+        if (data.action === google.picker.Action.PICKED) {
+          const doc = data.docs[0];
+          processPickedFile(doc);
+        }
+      })
+      .build();
+    picker.setVisible(true);
+    setIsPickerLoading(false);
+  }, [processPickedFile]);
+
+  const handlePick = () => {
+    if (sessionStatus !== 'authenticated' || !session) {
+      toast({ variant: 'destructive', title: "Authentication Required", description: "Please connect your Google Drive first." });
+      return;
+    }
+    setIsPickerLoading(true);
+    const accessToken = (session as any).accessToken;
+
+    if (pickerApiLoaded.current) {
+      createPicker(accessToken);
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://apis.google.com/js/api.js';
+      script.onload = () => {
+        gapi.load('picker', () => {
+          pickerApiLoaded.current = true;
+          createPicker(accessToken);
+        });
+      };
+      document.head.appendChild(script);
+    }
+  };
+
 
   useEffect(() => {
     const processQueue = async () => {
-      const videosToProcess = videos.filter(v => v.status === "queued");
+      const videosToProcess = videos.filter(v => v.status === "queued" && v.source === 'local');
       if (videosToProcess.length === 0) {
         setIsProcessing(false);
         return;
@@ -120,6 +245,8 @@ export default function HomePage() {
 
       const processingPromises = videosToProcess.map(async (video) => {
         try {
+          if (!video.file) throw new Error("Local file not found for processing.");
+          
           const frameDataUri = await extractFrame(video.file);
           setVideos(prev => prev.map(v => v.id === video.id ? { ...v, thumbnail: frameDataUri } : v));
 
@@ -127,9 +254,8 @@ export default function HomePage() {
             frameDataUri,
             filename: video.file.name,
           });
-          const newTags = tagResult.tags;
           
-          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, tags: newTags, status: "success" } : v));
+          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, tags: tagResult.tags, status: "success" } : v));
           
           toast({
               title: "Analysis Complete!",
@@ -167,7 +293,44 @@ export default function HomePage() {
     });
   };
 
+  const handleSaveToDrive = async (video: VideoFile) => {
+    if (video.source !== 'drive' || !video.driveId || !video.tags) return;
+    try {
+      const res = await fetch('/api/rename-drive-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: video.driveId, newName: video.tags })
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to rename file in Google Drive.");
+      }
+      toast({
+        title: 'File Renamed!',
+        description: `Successfully renamed the file in Google Drive.`,
+      });
+    } catch(error) {
+        console.error(error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        toast({
+            variant: "destructive",
+            title: "Save Failed",
+            description: errorMessage,
+        });
+    }
+  }
+
   const heroVideo = useMemo(() => videos.find(v => v.status === 'success') || null, [videos]);
+  
+  const AuthButton = () => {
+    if (sessionStatus === 'loading') {
+      return <Button disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Please Wait</Button>;
+    }
+    if (sessionStatus === 'authenticated') {
+      return <Button onClick={() => signOut()}>Disconnect Drive</Button>;
+    }
+    return <Button onClick={() => signIn()}>Connect Drive</Button>;
+  };
 
   return (
     <div className="flex h-screen w-full">
@@ -187,19 +350,11 @@ export default function HomePage() {
                     />
                 </div>
                 <div className="flex items-center gap-4">
-                    <label htmlFor="video-upload" className={cn(buttonVariants({ size: "sm" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': isProcessing })}>
-                        <Upload className="h-4 w-4" />
-                        <span>{isProcessing ? "Processing..." : "Upload"}</span>
-                    </label>
-                    <input
-                        id="video-upload"
-                        type="file"
-                        multiple
-                        accept="video/*"
-                        className="sr-only"
-                        onChange={handleFileChange}
-                        disabled={isProcessing}
-                    />
+                  <AuthButton />
+                  <Button onClick={handlePick} disabled={isPickerLoading || isProcessing}>
+                    {isPickerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {isProcessing ? "Processing..." : isPickerLoading ? "Loading..." : "Pick from Drive"}
+                  </Button>
                 </div>
             </div>
           </div>
@@ -218,9 +373,15 @@ export default function HomePage() {
                                 <Button onClick={() => setSelectedVideoForPlayback(heroVideo)} size="lg">
                                     Play
                                 </Button>
-                                <Button onClick={() => handleCopyToClipboard(heroVideo.tags!)} size="lg" variant="secondary">
-                                    <Copy className="mr-2"/> Copy Filename
-                                </Button>
+                                {heroVideo.source === 'drive' ? (
+                                    <Button onClick={() => handleSaveToDrive(heroVideo)} size="lg" variant="secondary">
+                                        <Save className="mr-2"/> Save to Drive
+                                    </Button>
+                                ) : (
+                                    <Button onClick={() => handleCopyToClipboard(heroVideo.tags!)} size="lg" variant="secondary">
+                                        <Copy className="mr-2"/> Copy Filename
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -236,10 +397,11 @@ export default function HomePage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {filteredVideos.map(video => (
                         <VideoCard
-                        key={video.id}
-                        video={video}
-                        onPlay={() => setSelectedVideoForPlayback(video)}
-                        onCopy={() => handleCopyToClipboard(video.tags!)}
+                          key={video.id}
+                          video={video}
+                          onPlay={() => setSelectedVideoForPlayback(video)}
+                          onCopy={() => handleCopyToClipboard(video.tags!)}
+                          onSaveToDrive={() => handleSaveToDrive(video)}
                         />
                     ))}
                     </div>
@@ -249,21 +411,12 @@ export default function HomePage() {
                 <Clapperboard className="w-24 h-24 mb-4 text-primary/50" />
                 <h2 className="text-2xl font-semibold text-foreground">Welcome to Revspot Vision</h2>
                 <p className="max-w-md mt-2">
-                 Upload your real estate videos, and we'll analyze them to generate the perfect, SEO-friendly filename.
+                 Connect your Google Drive, pick a video, and we'll analyze it to generate the perfect, SEO-friendly filename.
                 </p>
-                 <label htmlFor="video-upload-main" className={cn(buttonVariants({ size: "lg", className: "mt-6" }), "cursor-pointer gap-2", { 'opacity-50 cursor-not-allowed': isProcessing })}>
+                 <Button onClick={handlePick} size="lg" className="mt-6" disabled={isPickerLoading || isProcessing}>
                     <Upload className="h-4 w-4" />
-                    <span>{isProcessing ? "Processing..." : "Upload Your First Video"}</span>
-                </label>
-                <input
-                    id="video-upload-main"
-                    type="file"
-                    multiple
-                    accept="video/*"
-                    className="sr-only"
-                    onChange={handleFileChange}
-                    disabled={isProcessing}
-                />
+                     {isProcessing ? "Processing..." : isPickerLoading ? "Loading..." : "Pick Your First Video"}
+                 </Button>
             </div>
             )}
         </main>
@@ -278,3 +431,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    

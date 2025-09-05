@@ -1,3 +1,4 @@
+
 # Revspot Vision
 
 Revspot Vision is an AI-powered application designed to automatically analyze and tag real estate videos. It extracts a representative frame from each video, uses AI to generate a descriptive and searchable filename, and allows you to sync your video library directly from Google Drive.
@@ -5,8 +6,7 @@ Revspot Vision is an AI-powered application designed to automatically analyze an
 ## Features
 
 - **AI-Powered Tagging**: Automatically generates descriptive filenames based on video content.
-- **Direct Upload**: Upload videos directly from your computer.
-- **Google Drive Sync**: Connect your Google Drive and automatically process videos from a `RevspotVision-Uploads` folder.
+- **Google Picker Integration**: Select videos directly from your Google Drive or upload new ones.
 - **Tag Refinement**: Manually refine the AI-generated tags to improve accuracy.
 - **Video Playback**: Instantly preview your videos within the app.
 - **Save to Drive**: Rename files in Google Drive with the new AI-generated tags with a single click.
@@ -34,6 +34,9 @@ To run this project, you will need API credentials from Google Cloud and Google 
 4.  **Add Test Users (for Development)**:
     - On the **OAuth consent screen** page, find the **Test users** section.
     - Click **+ ADD USERS** and add the Google account(s) you will use to test the application locally. **The app will not work without this step while in "testing" mode.**
+5.  **Get your Project Number**:
+    - Go to your Google Cloud Console dashboard.
+    - Your project number will be visible on the "Project info" card.
 
 ### Step 2: Get a Gemini API Key
 
@@ -49,6 +52,8 @@ Create a file named `.env` in the root of the project and add your credentials:
 GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+GOOGLE_PROJECT_NUMBER=YOUR_GOOGLE_PROJECT_NUMBER
+GOOGLE_REDIRECT_URI=http://localhost:9002/api/auth/google/callback
 ```
 
 ### Step 4: Install Dependencies and Run Locally
@@ -73,9 +78,9 @@ GEMINI_API_KEY=YOUR_GEMINI_API_KEY
     - Import the Git repository you just created.
 3.  **Configure Environment Variables**:
     - In your Vercel project settings, go to **Settings > Environment Variables**.
-    - Add the same three keys from your `.env` file: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GEMINI_API_KEY`.
+    - Add the same five keys from your `.env` file: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GEMINI_API_KEY`, `GOOGLE_PROJECT_NUMBER`, and `GOOGLE_REDIRECT_URI`.
+    - **Important**: For the `GOOGLE_REDIRECT_URI` on Vercel, use your production URL (e.g., `https://your-app-name.vercel.app/api/auth/google/callback`).
 4.  **Update Google Credentials for Production**:
-    - Get your production URL from Vercel (e.g., `https://your-app-name.vercel.app`).
     - Go back to your Google Cloud project **Credentials** page and edit your OAuth 2.0 Client ID.
     - Under **Authorized redirect URIs**, click **+ ADD URI** and add your production callback URL: `https://your-app-name.vercel.app/api/auth/google/callback`
     - Click **Save**.
@@ -89,13 +94,15 @@ GEMINI_API_KEY=YOUR_GEMINI_API_KEY
     - Click the **Connect Drive** button in the header. This will open a Google authentication window.
     - Sign in with a Google account that you added as a "Test User".
     - After authorizing, you will be redirected back to the app, which will now show "Drive Connected".
-2.  **Add Videos**: You have two options:
-    - **Google Drive**: Create a folder named `RevspotVision-Uploads` in the root of your Google Drive. Place video files inside it. In the app, click the **Sync Drive** button to find and process new videos from this folder.
-    - **Direct Upload**: Click the **Upload Videos** button and select one or more video files from your computer.
+2.  **Add Videos**:
+    - Click the **Pick from Drive** button.
+    - A Google Picker will open. You can either select an existing video from your Drive or upload a new one. A folder named `RevspotVision-Uploads` will be created in your Drive for new uploads.
 3.  **Processing and Tagging**:
     - The app will automatically process each new video. A thumbnail will be generated, and the AI will create a new filename (tag).
 4.  **Managing Videos**:
     - **Play**: Click the play icon on a video card to watch it in a modal.
-    - **Refine Tags**: Click the pencil icon to provide feedback and refine the AI-generated tags.
+    - **Refine Tags**: Click the pencil icon to provide feedback and refine the AI-generated tags (future feature).
     - **Save to Drive**: If the video came from Google Drive, a save icon will appear. Clicking it will rename the file in your Google Drive with the new tags.
     - **Copy Filename**: If you uploaded the video directly, a copy icon will appear. Clicking it copies the new filename to your clipboard so you can rename the file manually.
+
+    

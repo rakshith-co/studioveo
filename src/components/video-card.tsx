@@ -5,15 +5,16 @@ import Image from "next/image";
 import { type VideoFile } from "@/app/page";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Play, Copy, AlertCircle, Loader2 } from "lucide-react";
+import { Play, Copy, AlertCircle, Loader2, Save } from "lucide-react";
 
 interface VideoCardProps {
   video: VideoFile;
   onPlay: () => void;
   onCopy: () => void;
+  onSaveToDrive: () => void;
 }
 
-export function VideoCard({ video, onPlay, onCopy }: VideoCardProps) {
+export function VideoCard({ video, onPlay, onCopy, onSaveToDrive }: VideoCardProps) {
   
   const renderStatusOverlay = () => {
     let statusContent = null;
@@ -44,6 +45,11 @@ export function VideoCard({ video, onPlay, onCopy }: VideoCardProps) {
     )
   };
 
+  const getFileName = () => {
+      if (video.source === 'drive') return video.tags ? 'Ready to save' : 'Processing...';
+      return video.file?.name ?? 'Processing...';
+  }
+
   return (
     <div className="group relative rounded-xl overflow-hidden transition-all duration-300 ease-in-out hover:shadow-primary/20 hover:shadow-lg hover:-translate-y-1">
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
@@ -51,7 +57,7 @@ export function VideoCard({ video, onPlay, onCopy }: VideoCardProps) {
             {video.thumbnail ? (
                 <Image
                 src={video.thumbnail}
-                alt={`Frame from ${video.file.name}`}
+                alt={`Frame from ${video.id}`}
                 fill
                 className="object-cover transition-transform duration-500 group-hover:scale-105"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -63,18 +69,26 @@ export function VideoCard({ video, onPlay, onCopy }: VideoCardProps) {
         </div>
        <div className="absolute bottom-0 left-0 p-4 z-20 w-full">
             <h3 className="font-semibold text-white truncate">{video.tags || <Skeleton className="h-5 w-3/4" />}</h3>
-            <p className="text-xs text-muted-foreground truncate">{video.tags ? video.file.name : 'Processing...'}</p>
+            <p className="text-xs text-muted-foreground truncate">{video.tags ? (video.source === 'drive' ? `Original file in Drive` : video.file?.name) : 'Processing...'}</p>
        </div>
         {video.status === "success" && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <Button variant="default" size="icon" className="rounded-full h-12 w-12" onClick={onPlay} aria-label="Play video">
                     <Play className="h-5 w-5" />
                 </Button>
-                <Button variant="secondary" size="icon" className="rounded-full h-12 w-12" onClick={onCopy} aria-label="Copy filename">
-                    <Copy className="h-5 w-5" />
-                </Button>
+                {video.source === 'drive' ? (
+                     <Button variant="secondary" size="icon" className="rounded-full h-12 w-12" onClick={onSaveToDrive} aria-label="Save to Drive">
+                        <Save className="h-5 w-5" />
+                    </Button>
+                ) : (
+                    <Button variant="secondary" size="icon" className="rounded-full h-12 w-12" onClick={onCopy} aria-label="Copy filename">
+                        <Copy className="h-5 w-5" />
+                    </Button>
+                )}
             </div>
         )}
     </div>
   );
 }
+
+    
