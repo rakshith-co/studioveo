@@ -176,8 +176,8 @@ export default function HomePage() {
 
   const createPicker = useCallback((accessToken: string) => {
     const showPicker = () => {
-      const view = new google.picker.View(google.picker.ViewId.DOCS);
-      view.setMimeTypes("video/*");
+      const view = new google.picker.View(google.picker.ViewId.VIDEO_SEARCH);
+      // view.setMimeTypes("video/*"); // Not needed for VIDEO_SEARCH view
 
       const uploadView = new google.picker.DocsUploadView();
       uploadView.setMimeTypes("video/*");
@@ -199,14 +199,8 @@ export default function HomePage() {
       setIsPickerLoading(false);
     }
 
-    if (pickerApiLoaded.current) {
-        showPicker();
-    } else {
-        gapi.load('picker', () => {
-            pickerApiLoaded.current = true;
-            showPicker();
-        });
-    }
+    gapi.load('picker', showPicker);
+
   }, [processPickedFile]);
 
   const handlePick = () => {
@@ -220,22 +214,21 @@ export default function HomePage() {
     
     const accessToken = session.accessToken;
 
-    if (pickerApiLoaded.current) {
-      createPicker(accessToken);
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.async = true;
-      script.defer = true;
-      script.onload = () => {
-          createPicker(accessToken);
-      };
-      script.onerror = () => {
-          toast({ variant: 'destructive', title: "Error", description: "Could not load Google Picker." });
-          setIsPickerLoading(false);
-      }
-      document.head.appendChild(script);
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+        gapi.load('client:picker', () => {
+            gapi.client.setToken({ access_token: accessToken });
+            createPicker(accessToken);
+        });
+    };
+    script.onerror = () => {
+        toast({ variant: 'destructive', title: "Error", description: "Could not load Google Picker." });
+        setIsPickerLoading(false);
     }
+    document.body.appendChild(script);
   };
 
 
@@ -446,4 +439,3 @@ export default function HomePage() {
   );
 }
 
-    
